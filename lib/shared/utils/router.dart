@@ -10,12 +10,12 @@ import '../../shared/widgets/role_guard.dart';
 
 // Simple navigation helper without GoRouter
 class AppRouter {
-  static const String loginRoute = 'login';
-  static const String doctorRegisterRoute = 'doctorRegister';
-  static const String patientRegisterRoute = 'patientRegister';
-  static const String selectTenantRoute = 'selectTenant';
-  static const String doctorDashboardRoute = 'doctorDashboard';
-  static const String patientDashboardRoute = 'patientDashboard';
+  static const String loginRoute = '/login';
+  static const String doctorRegisterRoute = '/doctorRegister';
+  static const String patientRegisterRoute = '/patientRegister';
+  static const String selectTenantRoute = '/selectTenant';
+  static const String doctorDashboardRoute = '/doctorDashboard';
+  static const String patientDashboardRoute = '/patientDashboard';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {

@@ -9,7 +9,10 @@ class PatientDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold
     (
-      appBar: AppBar(title: Text(patient.fullName)),
+      appBar: AppBar(title: Text(patient.fullName),
+          automaticallyImplyLeading: false,
+),
+      
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_service.dart';
 import '../tenant/tenant_service.dart';
+import '../../shared/utils/router.dart';
 
 class DoctorRegistrationScreen extends ConsumerStatefulWidget {
   const DoctorRegistrationScreen({super.key});
@@ -118,7 +119,7 @@ class _DoctorRegistrationScreenState
         // Use Navigator to avoid GoRouter assertion error
         if (mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil(
-            'doctorDashboard',
+            AppRouter.doctorDashboardRoute,
             (route) => false,
           );
         }

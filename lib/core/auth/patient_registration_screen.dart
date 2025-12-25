@@ -4,6 +4,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/invite/invite_service.dart';
 import '../../core/tenant/tenant_service.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../shared/utils/router.dart';
 
 class PatientRegistrationScreen extends ConsumerStatefulWidget {
   const PatientRegistrationScreen({super.key});
@@ -105,7 +106,7 @@ class _PatientRegistrationScreenState
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil(
-            'patientDashboard',
+            AppRouter.patientDashboardRoute,
             (route) => false,
           );
         }
