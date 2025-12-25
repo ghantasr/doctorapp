@@ -21,28 +21,6 @@ CREATE TABLE tenants (
 -- Enable RLS
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for tenants
-CREATE POLICY "Users can view their tenants"
-    ON tenants FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = tenants.id
-            AND user_tenant_roles.user_id = auth.uid()
-        )
-    );
-
-CREATE POLICY "Admins can manage their tenant"
-    ON tenants FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = tenants.id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role = 'admin'
-        )
-    );
-
 -- ============================================
 -- USER_TENANT_ROLES TABLE
 -- ============================================
@@ -59,21 +37,25 @@ CREATE TABLE user_tenant_roles (
 -- Enable RLS
 ALTER TABLE user_tenant_roles ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for user_tenant_roles
+-- Simple RLS policy for user_tenant_roles (no recursion)
+-- Users can only view their own roles
 CREATE POLICY "Users can view their own roles"
     ON user_tenant_roles FOR SELECT
     USING (user_id = auth.uid());
 
-CREATE POLICY "Admins can manage roles in their tenant"
-    ON user_tenant_roles FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles utr
-            WHERE utr.tenant_id = user_tenant_roles.tenant_id
-            AND utr.user_id = auth.uid()
-            AND utr.role = 'admin'
-        )
-    );
+-- Users cannot directly insert/update/delete their roles
+-- This is managed by application logic only
+CREATE POLICY "Only service role can manage roles"
+    ON user_tenant_roles FOR INSERT
+    WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "Only service role can update roles"
+    ON user_tenant_roles FOR UPDATE
+    USING (auth.role() = 'service_role');
+
+CREATE POLICY "Only service role can delete roles"
+    ON user_tenant_roles FOR DELETE
+    USING (auth.role() = 'service_role');
 
 -- Indexes
 CREATE INDEX idx_user_tenant_roles_user ON user_tenant_roles(user_id);
@@ -102,30 +84,6 @@ CREATE TABLE patients (
 -- Enable RLS
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for patients
-CREATE POLICY "Patients can view their own data"
-    ON patients FOR SELECT
-    USING (
-        user_id = auth.uid()
-        OR EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = patients.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role IN ('doctor', 'admin')
-        )
-    );
-
-CREATE POLICY "Doctors and admins can manage patients in their tenant"
-    ON patients FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = patients.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role IN ('doctor', 'admin')
-        )
-    );
-
 -- Indexes
 CREATE INDEX idx_patients_tenant ON patients(tenant_id);
 CREATE INDEX idx_patients_user ON patients(user_id);
@@ -151,32 +109,6 @@ CREATE TABLE doctors (
 -- Enable RLS
 ALTER TABLE doctors ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for doctors
-CREATE POLICY "Users in tenant can view doctors"
-    ON doctors FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = doctors.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-        )
-    );
-
-CREATE POLICY "Doctors can update their own profile"
-    ON doctors FOR UPDATE
-    USING (user_id = auth.uid());
-
-CREATE POLICY "Admins can manage doctors in their tenant"
-    ON doctors FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = doctors.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role = 'admin'
-        )
-    );
-
 -- Indexes
 CREATE INDEX idx_doctors_tenant ON doctors(tenant_id);
 CREATE INDEX idx_doctors_user ON doctors(user_id);
@@ -199,39 +131,6 @@ CREATE TABLE appointments (
 
 -- Enable RLS
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for appointments
-CREATE POLICY "Patients can view their appointments"
-    ON appointments FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM patients
-            WHERE patients.id = appointments.patient_id
-            AND patients.user_id = auth.uid()
-        )
-    );
-
-CREATE POLICY "Doctors can view appointments in their tenant"
-    ON appointments FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = appointments.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role IN ('doctor', 'admin')
-        )
-    );
-
-CREATE POLICY "Doctors and admins can manage appointments"
-    ON appointments FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = appointments.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role IN ('doctor', 'admin')
-        )
-    );
 
 -- Indexes
 CREATE INDEX idx_appointments_tenant ON appointments(tenant_id);
@@ -258,39 +157,6 @@ CREATE TABLE medical_records (
 
 -- Enable RLS
 ALTER TABLE medical_records ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for medical_records
-CREATE POLICY "Patients can view their medical records"
-    ON medical_records FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM patients
-            WHERE patients.id = medical_records.patient_id
-            AND patients.user_id = auth.uid()
-        )
-    );
-
-CREATE POLICY "Doctors can view medical records in their tenant"
-    ON medical_records FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = medical_records.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role IN ('doctor', 'admin')
-        )
-    );
-
-CREATE POLICY "Doctors can create medical records"
-    ON medical_records FOR INSERT
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM user_tenant_roles
-            WHERE user_tenant_roles.tenant_id = medical_records.tenant_id
-            AND user_tenant_roles.user_id = auth.uid()
-            AND user_tenant_roles.role IN ('doctor', 'admin')
-        )
-    );
 
 -- Indexes
 CREATE INDEX idx_medical_records_tenant ON medical_records(tenant_id);
@@ -328,6 +194,163 @@ CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON appointments
 
 CREATE TRIGGER update_medical_records_updated_at BEFORE UPDATE ON medical_records
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RLS POLICIES (Created after all tables)
+-- ============================================
+
+-- RLS Policies for tenants
+CREATE POLICY "Users can view their tenants"
+    ON tenants FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = tenants.id
+            AND user_tenant_roles.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Anyone can create tenants"
+    ON tenants FOR INSERT
+    WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admins can update their tenant"
+    ON tenants FOR UPDATE
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = tenants.id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete their tenant"
+    ON tenants FOR DELETE
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = tenants.id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role = 'admin'
+        )
+    );
+
+-- RLS Policies for patients
+CREATE POLICY "Patients can view their own data"
+    ON patients FOR SELECT
+    USING (
+        user_id = auth.uid()
+        OR EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = patients.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role IN ('doctor', 'admin')
+        )
+    );
+
+CREATE POLICY "Doctors and admins can manage patients in their tenant"
+    ON patients FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = patients.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role IN ('doctor', 'admin')
+        )
+    );
+
+-- RLS Policies for doctors
+CREATE POLICY "Users in tenant can view doctors"
+    ON doctors FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = doctors.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Doctors can update their own profile"
+    ON doctors FOR UPDATE
+    USING (user_id = auth.uid());
+
+CREATE POLICY "Admins can manage doctors in their tenant"
+    ON doctors FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = doctors.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role = 'admin'
+        )
+    );
+
+-- RLS Policies for appointments
+CREATE POLICY "Patients can view their appointments"
+    ON appointments FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM patients
+            WHERE patients.id = appointments.patient_id
+            AND patients.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Doctors can view appointments in their tenant"
+    ON appointments FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = appointments.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role IN ('doctor', 'admin')
+        )
+    );
+
+CREATE POLICY "Doctors and admins can manage appointments"
+    ON appointments FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = appointments.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role IN ('doctor', 'admin')
+        )
+    );
+
+-- RLS Policies for medical_records
+CREATE POLICY "Patients can view their medical records"
+    ON medical_records FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM patients
+            WHERE patients.id = medical_records.patient_id
+            AND patients.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Doctors can view medical records in their tenant"
+    ON medical_records FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = medical_records.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role IN ('doctor', 'admin')
+        )
+    );
+
+CREATE POLICY "Doctors can create medical records"
+    ON medical_records FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM user_tenant_roles
+            WHERE user_tenant_roles.tenant_id = medical_records.tenant_id
+            AND user_tenant_roles.user_id = auth.uid()
+            AND user_tenant_roles.role IN ('doctor', 'admin')
+        )
+    );
 
 -- ============================================
 -- SAMPLE DATA (FOR TESTING ONLY)

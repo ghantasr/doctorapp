@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_service.dart';
+import '../../app/app_flavor.dart';
+import '../../core/tenant/tenant_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -11,21 +13,34 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
-  final _otpController = TextEditingController();
-  bool _otpSent = false;
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check if user is already authenticated (e.g., from OTP link click)
+    _checkAuthState();
+  }
+
+  void _checkAuthState() {
+    // This will be called when the widget is built
+    // We'll use the authStateProvider in the build method instead
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _otpController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendOTP() async {
+  Future<void> _signIn() async {
     final email = _emailController.text.trim();
-    
+    final password = _passwordController.text;
+
     if (email.isEmpty || !email.contains('@')) {
       setState(() {
         _errorMessage = 'Please enter a valid email';
@@ -33,34 +48,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final authService = ref.read(authServiceProvider);
-      await authService.signInWithOTP(email);
-      
+    if (password.isEmpty || password.length < 6) {
       setState(() {
-        _otpSent = true;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _verifyOTP() async {
-    final email = _emailController.text.trim();
-    final otp = _otpController.text.trim();
-
-    if (otp.isEmpty || otp.length != 6) {
-      setState(() {
-        _errorMessage = 'Please enter a valid 6-digit OTP';
+        _errorMessage = 'Password must be at least 6 characters';
       });
       return;
     }
@@ -72,7 +62,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.verifyOTP(email, otp);
+      final tenantService = ref.read(tenantServiceProvider);
+      
+      await authService.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      // Fetch user's tenants and set the first one as selected
+      final userId = authService.currentUser?.id;
+      if (userId != null) {
+        try {
+          final roles = await authService.fetchUserTenantRoles(userId);
+          if (roles.isNotEmpty) {
+            final firstTenantId = roles[0].tenantId;
+            final tenant = await tenantService.getTenantById(firstTenantId);
+            if (tenant != null) {
+              ref.read(selectedTenantProvider.notifier).setTenant(tenant);
+            }
+          } else {
+            // No tenant yet: go to tenant selection (works for both flavors)
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('selectTenant');
+              return;
+            }
+          }
+        } catch (e) {
+          // If we can't fetch tenant, just continue
+          print('Error fetching tenant: $e');
+        }
+      }
+
+      // After successful sign in, navigate to dashboard
+      if (mounted) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('doctorDashboard');
+        }
+      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -83,6 +110,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if user is already authenticated
+    final authService = ref.watch(authServiceProvider);
+    final currentUser = authService.currentUser;
+    
+    // If user is authenticated, navigate to dashboard
+    if (currentUser != null) {
+      // Use addPostFrameCallback to avoid navigation during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacementNamed(
+          AppFlavor.current.isDoctor ? 'doctorDashboard' : 'patientDashboard',
+        );
+      });
+    }
+    
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -117,7 +158,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  enabled: !_otpSent && !_isLoading,
+                  enabled: !_isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     hintText: 'Enter your email',
@@ -125,21 +166,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                if (_otpSent) ...[
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    enabled: !_isLoading,
-                    decoration: const InputDecoration(
-                      labelText: 'OTP',
-                      hintText: 'Enter 6-digit code',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  enabled: !_isLoading,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Enter your password',
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
                     ),
+                    border: const OutlineInputBorder(),
                   ),
-                ],
+                ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Container(
@@ -156,45 +202,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
-                if (!_otpSent)
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _sendOTP,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Send OTP'),
-                  )
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _verifyOTP,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Verify OTP'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                setState(() {
-                                  _otpSent = false;
-                                  _otpController.clear();
-                                  _errorMessage = null;
-                                });
-                              },
-                        child: const Text('Back to Email'),
-                      ),
-                    ],
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _signIn,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Sign In'),
+                ),
+                const SizedBox(height: 24),
+                // Show "Register as Doctor" button only in Doctor app
+                if (AppFlavor.current.isDoctor)
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pushNamed('doctorRegister'),
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Register as Doctor'),
+                  ),
+                // Show "Register as Patient" button only in Patient app
+                if (AppFlavor.current.isPatient)
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pushNamed('patientRegister'),
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Register as Patient'),
                   ),
               ],
             ),

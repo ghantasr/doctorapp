@@ -410,6 +410,14 @@ class PatientProfileView extends ConsumerWidget {
                 onTap: () async {
                   final authService = ref.read(authServiceProvider);
                   await authService.signOut();
+                  
+                  // Clear the selected tenant
+                  ref.read(selectedTenantProvider.notifier).clearTenant();
+                  
+                  // Navigate back to login
+                  if (context.mounted) {
+                    Navigator.of(context).pushReplacementNamed('login');
+                  }
                 },
               ),
             ],

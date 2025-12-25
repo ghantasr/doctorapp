@@ -44,6 +44,68 @@ class TenantService {
       throw TenantException('Failed to fetch tenant: $e');
     }
   }
+
+  Future<Tenant?> createTenant({
+    required String name,
+    String? logo,
+    Map<String, dynamic>? branding,
+  }) async {
+    try {
+      final response = await _client
+          .from('tenants')
+          .insert({
+            'name': name,
+            'logo': logo,
+            'branding': branding,
+          })
+          .select('id, name, logo, branding, created_at')
+          .single();
+
+      return Tenant.fromJson(response);
+    } catch (e) {
+      throw TenantException('Failed to create tenant: $e');
+    }
+  }
+
+  Future<void> createDoctorProfile({
+    required String userId,
+    required String tenantId,
+    required String firstName,
+    required String lastName,
+    String? specialty,
+    String? licenseNumber,
+    String? email,
+    String? phone,
+  }) async {
+    try {
+      await _client.from('doctors').insert({
+        'user_id': userId,
+        'tenant_id': tenantId,
+        'first_name': firstName,
+        'last_name': lastName,
+        'specialty': specialty,
+        'license_number': licenseNumber,
+        'email': email,
+        'phone': phone,
+      });
+    } catch (e) {
+      throw TenantException('Failed to create doctor profile: $e');
+    }
+  }
+
+  Future<void> updateTenantBranding({
+    required String tenantId,
+    required Map<String, dynamic> branding,
+  }) async {
+    try {
+      await _client
+          .from('tenants')
+          .update({'branding': branding})
+          .eq('id', tenantId);
+    } catch (e) {
+      throw TenantException('Failed to update tenant branding: $e');
+    }
+  }
 }
 
 final tenantServiceProvider = Provider<TenantService>((ref) => TenantService());

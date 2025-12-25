@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../app/app_flavor.dart';
 import '../../core/auth/auth_service.dart';
-import '../../core/auth/user_role.dart';
 import '../../core/tenant/tenant_service.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -29,8 +27,14 @@ class RoleValidator {
       return false;
     }
 
+    // Check if the user's role is allowed for this flavor
     final allowedRoles = flavor.allowedRoles;
-    return allowedRoles.contains(userRole.role.name);
+    
+    // Check both the enum name and the original role string
+    final roleMatch = allowedRoles.contains(userRole.role.name) ||
+        allowedRoles.contains(userRole.role.toString().split('.').last);
+    
+    return roleMatch;
   }
 
   static Future<void> applyTenantBranding({
@@ -75,6 +79,39 @@ class _RoleGuardScreenState extends ConsumerState<RoleGuardScreen> {
     });
 
     try {
+      // If no tenant is selected yet, attempt to auto-select the first tenant for the user
+      final authService = ref.read(authServiceProvider);
+      final tenantService = ref.read(tenantServiceProvider);
+      final userId = authService.currentUserId;
+      final tenant = ref.read(selectedTenantProvider);
+
+      if (userId != null && tenant == null) {
+        try {
+          final roles = await authService.fetchUserTenantRoles(userId);
+
+          if (roles.isEmpty) {
+            // Send user to select clinic instead of looping registration/signout
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil('selectTenant', (route) => false);
+            }
+            setState(() {
+              _isAuthorized = false;
+              _isValidating = false;
+              _errorMessage = 'No clinic found for this account. Please select or create one.';
+            });
+            return;
+          }
+
+          final firstTenantId = roles.first.tenantId;
+          final fetchedTenant = await tenantService.getTenantById(firstTenantId);
+          if (fetchedTenant != null) {
+            ref.read(selectedTenantProvider.notifier).setTenant(fetchedTenant);
+          }
+        } catch (_) {
+          // ignore and let validation proceed
+        }
+      }
+
       final isValid = await RoleValidator.validateRoleForFlavor(
         ref: ref,
         flavor: AppFlavor.current,
@@ -143,11 +180,22 @@ class _RoleGuardScreenState extends ConsumerState<RoleGuardScreen> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
+                  onPressed: () {
+                    // Let the user pick a tenant if they have one but it wasn't selected
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                    Navigator.of(context).pushNamed('selectTenant');
+                  },
+                  child: const Text('Select Clinic'),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
                   onPressed: () async {
                     final authService = ref.read(authServiceProvider);
                     await authService.signOut();
                     if (context.mounted) {
-                      context.go('/');
+                      Navigator.of(context).pushNamedAndRemoveUntil('login', (route) => false);
                     }
                   },
                   child: const Text('Sign Out'),

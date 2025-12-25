@@ -4,6 +4,7 @@ import 'app/app_flavor.dart';
 import 'core/supabase/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'shared/utils/router.dart';
+import 'core/auth/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,17 +21,20 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
     final theme = ref.watch(themeProvider);
     final themeMode = ref.watch(themeModeProvider);
+    
+    // Watch auth state to handle navigation
+    ref.watch(authStateProvider);
 
-    return MaterialApp.router(
+    return MaterialApp(
       title: AppFlavor.current.appName,
       debugShowCheckedModeBanner: false,
       theme: theme.lightTheme,
       darkTheme: theme.darkTheme,
       themeMode: themeMode,
-      routerConfig: router,
+      onGenerateRoute: AppRouter.onGenerateRoute,
+      initialRoute: AppRouter.loginRoute,
     );
   }
 }

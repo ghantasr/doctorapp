@@ -13,8 +13,28 @@ class Tenant with _$Tenant {
     DateTime? createdAt,
   }) = _Tenant;
 
-  factory Tenant.fromJson(Map<String, dynamic> json) =>
-      _$TenantFromJson(json);
+  factory Tenant.fromJson(Map<String, dynamic> json) {
+    // Handle branding field conversion from Map to TenantBranding
+    TenantBranding? branding;
+    if (json['branding'] != null) {
+      final brandingData = json['branding'];
+      if (brandingData is Map) {
+        branding = TenantBranding.fromJson(
+          Map<String, dynamic>.from(brandingData),
+        );
+      }
+    }
+
+    return Tenant(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      logo: json['logo'] as String?,
+      branding: branding,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+    );
+  }
 }
 
 @freezed
