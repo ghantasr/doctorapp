@@ -113,22 +113,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Check if user is already authenticated
-    final authService = ref.watch(authServiceProvider);
-    final currentUser = authService.currentUser;
-    
-    // If user is authenticated, navigate to dashboard
-    if (currentUser != null) {
-      // Use addPostFrameCallback to avoid navigation during build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed(
-            AppFlavor.current.isDoctor ? AppRouter.doctorDashboardRoute : AppRouter.patientDashboardRoute,
-          );
-        }
-      });
-    }
-    
     return Scaffold(
       body: SafeArea(
         child: Center(
