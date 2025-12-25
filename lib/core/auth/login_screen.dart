@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_service.dart';
 import '../../app/app_flavor.dart';
 import '../../core/tenant/tenant_service.dart';
+import '../../shared/utils/router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -83,7 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           } else {
             // No tenant yet: go to tenant selection (works for both flavors)
             if (mounted) {
-              Navigator.of(context).pushReplacementNamed('selectTenant');
+              Navigator.of(context).pushReplacementNamed(AppRouter.selectTenantRoute);
               return;
             }
           }
@@ -97,7 +98,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         await Future.delayed(const Duration(milliseconds: 300));
         if (mounted) {
-          Navigator.of(context).pushReplacementNamed('doctorDashboard');
+          Navigator.of(context).pushReplacementNamed(
+            AppFlavor.current.isDoctor ? AppRouter.doctorDashboardRoute : AppRouter.patientDashboardRoute,
+          );
         }
       }
     } catch (e) {
@@ -118,9 +121,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (currentUser != null) {
       // Use addPostFrameCallback to avoid navigation during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacementNamed(
-          AppFlavor.current.isDoctor ? 'doctorDashboard' : 'patientDashboard',
-        );
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed(
+            AppFlavor.current.isDoctor ? AppRouter.doctorDashboardRoute : AppRouter.patientDashboardRoute,
+          );
+        }
       });
     }
     
@@ -216,14 +221,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Show "Register as Doctor" button only in Doctor app
                 if (AppFlavor.current.isDoctor)
                   OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pushNamed('doctorRegister'),
+                    onPressed: () => Navigator.of(context).pushNamed(AppRouter.doctorRegisterRoute),
                     icon: const Icon(Icons.person_add),
                     label: const Text('Register as Doctor'),
                   ),
                 // Show "Register as Patient" button only in Patient app
                 if (AppFlavor.current.isPatient)
                   OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pushNamed('patientRegister'),
+                    onPressed: () => Navigator.of(context).pushNamed(AppRouter.patientRegisterRoute),
                     icon: const Icon(Icons.person_add),
                     label: const Text('Register as Patient'),
                   ),
