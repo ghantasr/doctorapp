@@ -97,16 +97,20 @@ class MedicalVisit {
   });
 
   factory MedicalVisit.fromJson(Map<String, dynamic> json) {
+    final content = json['content'] as Map<String, dynamic>? ?? {};
+    
     return MedicalVisit(
       id: json['id'],
       patientId: json['patient_id'],
       doctorId: json['doctor_id'],
       tenantId: json['tenant_id'],
-      visitDate: DateTime.parse(json['visit_date']),
-      chiefComplaint: json['chief_complaint'],
-      diagnosis: json['diagnosis'],
-      treatmentPlan: json['treatment_plan'],
-      notes: json['notes'],
+      visitDate: json['record_date'] != null 
+          ? DateTime.parse(json['record_date'])
+          : DateTime.now(),
+      chiefComplaint: content['chief_complaint'],
+      diagnosis: content['diagnosis'],
+      treatmentPlan: content['treatment_plan'],
+      notes: content['notes'],
       toothRecords: [],
     );
   }
@@ -118,10 +122,11 @@ class MedicalRecordsService {
   Future<List<MedicalVisit>> getPatientVisits(String patientId) async {
     try {
       final response = await _client
-          .from('medical_visits')
+          .from('medical_records')
           .select()
           .eq('patient_id', patientId)
-          .order('visit_date', ascending: false);
+          .eq('record_type', 'visit')
+          .order('record_date', ascending: false);
 
       return (response as List)
           .map((json) => MedicalVisit.fromJson(json))
@@ -157,16 +162,23 @@ class MedicalRecordsService {
     String? notes,
   }) async {
     try {
+      final content = {
+        'chief_complaint': chiefComplaint,
+        'diagnosis': diagnosis,
+        'treatment_plan': treatmentPlan,
+        'notes': notes,
+      };
+      
       final response = await _client
-          .from('medical_visits')
+          .from('medical_records')
           .insert({
             'patient_id': patientId,
             'doctor_id': doctorId,
             'tenant_id': tenantId,
-            'chief_complaint': chiefComplaint,
-            'diagnosis': diagnosis,
-            'treatment_plan': treatmentPlan,
-            'notes': notes,
+            'record_type': 'visit',
+            'title': 'Medical Visit - ${DateTime.now().toString().split(' ')[0]}',
+            'content': content,
+            'record_date': DateTime.now().toIso8601String().split('T')[0],
           })
           .select()
           .single();

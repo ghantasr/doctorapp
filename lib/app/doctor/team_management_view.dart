@@ -8,18 +8,17 @@ import '../../shared/widgets/hospital_selector.dart';
 import '../../core/doctor/doctor_service.dart';
 import '../../core/supabase/supabase_config.dart';
 
-/// Provider to get all doctors in a hospital
-final hospitalDoctorsProvider = FutureProvider.family<List<DoctorProfile>, String>(
-  (ref, tenantId) async {
-    final response = await SupabaseConfig.client
+/// Provider to get all doctors in a hospital (Stream for real-time updates)
+final hospitalDoctorsProvider = StreamProvider.family<List<DoctorProfile>, String>(
+  (ref, tenantId) {
+    return SupabaseConfig.client
         .from('doctors')
-        .select('*')
+        .stream(primaryKey: ['id'])
         .eq('tenant_id', tenantId)
-        .order('created_at', ascending: false);
-    
-    return (response as List)
-        .map((json) => DoctorProfile.fromJson(json))
-        .toList();
+        .order('created_at', ascending: false)
+        .map((data) => (data as List)
+            .map((json) => DoctorProfile.fromJson(json))
+            .toList());
   },
 );
 

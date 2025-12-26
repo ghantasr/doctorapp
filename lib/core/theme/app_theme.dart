@@ -26,7 +26,7 @@ class AppThemeData {
         : Colors.amber;
 
     final textTheme = branding?.fontFamily != null
-        ? GoogleFonts.getTextTheme(branding!.fontFamily!)
+        ? _getTextThemeForFont(branding!.fontFamily!)
         : null;
 
     final colorScheme = ColorScheme.fromSeed(
@@ -87,6 +87,34 @@ class AppThemeData {
       // Invalid color format
     }
     return Colors.blue;
+  }
+
+  static TextTheme? _getTextThemeForFont(String fontFamily) {
+    try {
+      // Map font names to GoogleFonts methods
+      switch (fontFamily.toLowerCase()) {
+        case 'roboto':
+          return GoogleFonts.robotoTextTheme();
+        case 'lato':
+          return GoogleFonts.latoTextTheme();
+        case 'opensans':
+        case 'open sans':
+          return GoogleFonts.openSansTextTheme();
+        case 'montserrat':
+          return GoogleFonts.montserratTextTheme();
+        case 'poppins':
+          return GoogleFonts.poppinsTextTheme();
+        default:
+          // Try to use the font name directly, fallback to Roboto if it fails
+          try {
+            return GoogleFonts.getTextTheme(fontFamily);
+          } catch (e) {
+            return GoogleFonts.robotoTextTheme();
+          }
+      }
+    } catch (e) {
+      return null;
+    }
   }
 }
 

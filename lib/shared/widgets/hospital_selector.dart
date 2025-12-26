@@ -45,7 +45,32 @@ class HospitalSelectorWidget extends ConsumerWidget {
           icon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.local_hospital),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.local_hospital),
+                  if (hospitals.length > 1)
+                    Positioned(
+                      right: -8,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${hospitals.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(width: 8),
               Text(
                 currentHospital?.name ?? 'Select Hospital',

@@ -22,8 +22,10 @@ class _DoctorRegistrationScreenState
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _clinicNameController = TextEditingController();
+  final _logoUrlController = TextEditingController();
   final _specialtyController = TextEditingController();
   final _licenseNumberController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _inviteCodeController = TextEditingController();
   
   // Branding fields
@@ -44,8 +46,10 @@ class _DoctorRegistrationScreenState
     _firstNameController.dispose();
     _lastNameController.dispose();
     _clinicNameController.dispose();
+    _logoUrlController.dispose();
     _specialtyController.dispose();
     _licenseNumberController.dispose();
+    _phoneController.dispose();
     _inviteCodeController.dispose();
     _primaryColorController.dispose();
     _secondaryColorController.dispose();
@@ -154,6 +158,7 @@ class _DoctorRegistrationScreenState
               'last_name': _lastNameController.text.trim(),
               'specialty': _specialtyController.text.trim(),
               'license_number': _licenseNumberController.text.trim(),
+              'phone': _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
               'email': _emailController.text.trim(),
             })
             .select()
@@ -183,6 +188,7 @@ class _DoctorRegistrationScreenState
         // CREATING NEW CLINIC FLOW (original logic)
         final tenant = await tenantService.createTenant(
           name: _clinicNameController.text.trim(),
+          logo: _logoUrlController.text.trim().isNotEmpty ? _logoUrlController.text.trim() : null,
           branding: {
             'primaryColor': _primaryColorController.text.trim(),
             'secondaryColor': _secondaryColorController.text.trim(),
@@ -206,6 +212,7 @@ class _DoctorRegistrationScreenState
           specialty: _specialtyController.text.trim(),
           licenseNumber: _licenseNumberController.text.trim(),
           email: _emailController.text.trim(),
+          phone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
         );
 
         // Set user role as admin for their clinic
@@ -470,6 +477,17 @@ class _DoctorRegistrationScreenState
                   const SizedBox(height: 16),
 
                   TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      border: OutlineInputBorder(),
+                      hintText: '+1234567890',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
                     controller: _licenseNumberController,
                     decoration: const InputDecoration(
                       labelText: 'License Number',
@@ -494,6 +512,17 @@ class _DoctorRegistrationScreenState
                       ),
                       validator: (value) =>
                           !_isJoiningExisting && (value?.isEmpty ?? true) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _logoUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Clinic Logo URL (Optional)',
+                        border: OutlineInputBorder(),
+                        hintText: 'https://example.com/logo.png',
+                      ),
+                      keyboardType: TextInputType.url,
                     ),
                     const SizedBox(height: 32),
 

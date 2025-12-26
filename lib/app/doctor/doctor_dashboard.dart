@@ -11,6 +11,7 @@ import '../../shared/widgets/share_clinic_dialog.dart';
 import '../../shared/widgets/hospital_selector.dart';
 import 'team_management_view.dart';
 import 'debug_roles_view.dart';
+import 'join_clinic_screen.dart';
 
 class DoctorDashboard extends ConsumerStatefulWidget {
   const DoctorDashboard({super.key});
@@ -41,6 +42,17 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           ref.read(currentHospitalProvider.notifier).state = hospitals.first;
         });
+      }
+    });
+
+    // Listen for hospital changes and invalidate dependent providers
+    ref.listen(currentHospitalProvider, (previous, next) {
+      if (previous?.id != next?.id && next != null) {
+        // Invalidate all hospital-dependent providers
+        ref.invalidate(doctorProfileProvider);
+        ref.invalidate(dashboardStatsProvider);
+        ref.invalidate(upcomingAppointmentsProvider);
+        ref.invalidate(patientsListProvider);
       }
     });
 
@@ -842,6 +854,24 @@ class DoctorProfileView extends ConsumerWidget {
         Card(
           child: Column(
             children: [
+              ListTile(
+                leading: const Icon(Icons.add_business, color: Colors.blue),
+                title: const Text('Join Another Clinic'),
+                subtitle: const Text('Use invite code to join additional clinic'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const JoinClinicScreen(),
+                    ),
+                  );
+                  if (result == true) {
+                    // Refresh the hospital selector
+                    ref.invalidate(doctorHospitalsProvider);
+                  }
+                },
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.settings),
                 title: const Text('Settings'),
