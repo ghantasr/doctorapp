@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../supabase/supabase_config.dart';
-import '../tenant/tenant_service.dart';
+import '../../shared/widgets/hospital_selector.dart';
 
 class DashboardStats {
   final int totalPatients;
@@ -152,22 +152,22 @@ final dashboardServiceProvider = Provider<DashboardService>((ref) {
 
 final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   final dashboardService = ref.watch(dashboardServiceProvider);
-  final tenant = ref.watch(selectedTenantProvider);
+  final currentHospital = ref.watch(currentHospitalProvider);
 
-  if (tenant == null) {
-    throw Exception('No tenant selected');
+  if (currentHospital == null) {
+    throw Exception('No hospital selected');
   }
 
-  return dashboardService.getDashboardStats(tenant.id);
+  return dashboardService.getDashboardStats(currentHospital.id);
 });
 
 final upcomingAppointmentsProvider = FutureProvider<List<AppointmentItem>>((ref) async {
   final dashboardService = ref.watch(dashboardServiceProvider);
-  final tenant = ref.watch(selectedTenantProvider);
+  final currentHospital = ref.watch(currentHospitalProvider);
 
-  if (tenant == null) {
+  if (currentHospital == null) {
     return [];
   }
 
-  return dashboardService.getUpcomingAppointments(tenant.id);
+  return dashboardService.getUpcomingAppointments(currentHospital.id);
 });

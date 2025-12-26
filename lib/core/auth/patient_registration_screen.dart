@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/invite/invite_service.dart';
 import '../../core/tenant/tenant_service.dart';
+import '../../core/patient/patient_service.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../../shared/utils/router.dart';
 
@@ -50,6 +51,7 @@ class _PatientRegistrationScreenState
       final authService = ref.read(authServiceProvider);
       final inviteService = ref.read(inviteServiceProvider);
       final tenantService = ref.read(tenantServiceProvider);
+      final patientService = ref.read(patientServiceProvider);
 
       // Find tenant by clinic code
       final tenantId = await inviteService.findTenantByInviteCode(
@@ -59,6 +61,14 @@ class _PatientRegistrationScreenState
       if (tenantId == null) {
         throw Exception('Invalid clinic code. Please check and try again.');
       }
+
+      final phone = _phoneController.text.trim();
+
+      // Check if patient already exists with this phone number
+      final existingPatient = await patientService.findPatientByPhone(
+        tenantId,
+        phone,
+      );
 
       // Register the patient user
       final user = await authService.signUp(
@@ -72,16 +82,28 @@ class _PatientRegistrationScreenState
 
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Create patient profile
-      await SupabaseConfig.client.from('patients').insert({
-        'tenant_id': tenantId,
-        'user_id': user.id,
-        'first_name': _firstNameController.text.trim(),
-        'last_name': _lastNameController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'email': _emailController.text.trim(),
-        'date_of_birth': null,
-      });
+      // If patient exists with this phone, link the user to existing patient record
+      if (existingPatient != null) {
+        await patientService.linkUserToPatient(existingPatient.id, user.id);
+        
+        // Update email and other info if provided
+        await SupabaseConfig.client.from('patients').update({
+          'email': _emailController.text.trim(),
+          'first_name': _firstNameController.text.trim(),
+          'last_name': _lastNameController.text.trim(),
+        }).eq('id', existingPatient.id);
+      } else {
+        // Create new patient profile
+        await SupabaseConfig.client.from('patients').insert({
+          'tenant_id': tenantId,
+          'user_id': user.id,
+          'first_name': _firstNameController.text.trim(),
+          'last_name': _lastNameController.text.trim(),
+          'phone': phone,
+          'email': _emailController.text.trim(),
+          'date_of_birth': null,
+        });
+      }
 
       // Set user role as patient
       await authService.setUserRole(
@@ -98,8 +120,10 @@ class _PatientRegistrationScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful!'),
+          SnackBar(
+            content: Text(existingPatient != null
+                ? 'Account linked successfully!'
+                : 'Registration successful!'),
             backgroundColor: Colors.green,
           ),
         );

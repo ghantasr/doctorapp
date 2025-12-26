@@ -8,6 +8,9 @@ import '../../core/patient/patient_service.dart';
 import '../../core/supabase/supabase_config.dart';
 import 'patient_detail_screen.dart';
 import '../../shared/widgets/share_clinic_dialog.dart';
+import '../../shared/widgets/hospital_selector.dart';
+import 'team_management_view.dart';
+import 'debug_roles_view.dart';
 
 class DoctorDashboard extends ConsumerStatefulWidget {
   const DoctorDashboard({super.key});
@@ -23,17 +26,43 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
     const DoctorHomeView(),
     const DoctorPatientsView(),
     const DoctorAppointmentsView(),
+    const TeamManagementView(),
     const DoctorProfileView(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final tenant = ref.watch(selectedTenantProvider);
+    final currentHospital = ref.watch(currentHospitalProvider);
+    final hospitalsAsync = ref.watch(doctorHospitalsProvider);
+
+    // Auto-select first hospital if none selected
+    hospitalsAsync.whenData((hospitals) {
+      if (hospitals.isNotEmpty && currentHospital == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(currentHospitalProvider.notifier).state = hospitals.first;
+        });
+      }
+    });
+
+    final displayName = currentHospital?.name ?? 'Doctor App';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tenant?.name ?? 'Doctor App'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Doctor App', style: TextStyle(fontSize: 16)),
+            Text(
+              displayName,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+        automaticallyImplyLeading: false,
         actions: [
+          const HospitalChip(),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.share),
             tooltip: 'Share Clinic',
@@ -54,9 +83,7 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          setState(() => _selectedIndex = index);
         },
         destinations: const [
           NavigationDestination(
@@ -75,6 +102,11 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
             label: 'Appointments',
           ),
           NavigationDestination(
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: 'Team',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outlined),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
@@ -84,6 +116,10 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
     );
   }
 }
+
+// ============================================================================
+// Home View
+// ============================================================================
 
 class DoctorHomeView extends ConsumerWidget {
   const DoctorHomeView({super.key});
@@ -332,138 +368,110 @@ class DoctorPatientsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final patientsAsync = ref.watch(patientsListProvider);
 
-    return patientsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text('Error loading patients: $error'),
-          ],
+    return Scaffold(
+      body: patientsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Error loading patients: $error'),
+            ],
+          ),
         ),
-      ),
-      data: (patients) {
-        if (patients.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No Patients Yet', style: TextStyle(fontSize: 18)),
-                SizedBox(height: 8),
-                Text('Patients who register will appear here', style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          );
-        }
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(
-              'Total Patients: ${patients.length}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+        data: (patients) {
+          if (patients.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('No Patients Yet', style: TextStyle(fontSize: 18)),
+                  const SizedBox(height: 8),
+                  const Text('Add your first patient to get started', 
+                      style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushNamed('/addPatient');
+                    },
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Add Patient'),
                   ),
-            ),
-            const SizedBox(height: 16),
-            ...patients.map((patient) => Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Text(
-                        patient.firstName[0].toUpperCase(),
+                ],
+              ),
+            );
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total Patients: ${patients.length}',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushNamed('/addPatient');
+                    },
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Add Patient'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...patients.map((patient) => Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Text(
+                          patient.firstName[0].toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(
+                        patient.fullName,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (patient.email != null)
+                            Text('📧 ${patient.email}'),
+                          if (patient.phone != null)
+                            Text('📞 ${patient.phone}'),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PatientDetailScreen(patient: patient),
+                          ),
+                        );
+                      },
                     ),
-                    title: Text(
-                      patient.fullName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (patient.email != null)
-                          Text('📧 ${patient.email}'),
-                        if (patient.phone != null)
-                          Text('📞 ${patient.phone}'),
-                      ],
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PatientDetailScreen(patient: patient),
-                        ),
-                      );
-                    },
-                  ),
-                )),
-          ],
-        );
-      },
+                  )),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-class DoctorAppointmentsView extends ConsumerStatefulWidget {
+class DoctorAppointmentsView extends ConsumerWidget {
   const DoctorAppointmentsView({super.key});
 
   @override
-  ConsumerState<DoctorAppointmentsView> createState() => _DoctorAppointmentsViewState();
-}
-
-class _DoctorAppointmentsViewState extends ConsumerState<DoctorAppointmentsView> {
-  DateTime? _slotStart;
-  int _duration = 30;
-  bool _saving = false;
-
-  Future<void> _pickSlot(BuildContext context) async {
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 90)),
-    );
-    if (date == null) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
-    );
-    if (time == null) return;
-    final combined = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    setState(() => _slotStart = combined.toUtc());
-  }
-
-  Future<void> _saveSlot(DoctorProfile profile) async {
-    if (_slotStart == null) return;
-    setState(() => _saving = true);
-    try {
-      await SupabaseConfig.client.from('appointments').insert({
-        'tenant_id': profile.tenantId,
-        'doctor_id': profile.id,
-        'patient_id': null,
-        'appointment_date': _slotStart!.toIso8601String(),
-        'duration_minutes': _duration,
-        'status': 'available',
-      });
-      setState(() => _slotStart = null);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save slot: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(doctorProfileProvider);
 
     return profileAsync.when(
@@ -483,46 +491,30 @@ class _DoctorAppointmentsViewState extends ConsumerState<DoctorAppointmentsView>
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Add Available Slot', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.access_time),
-                    label: Text(
-                      _slotStart == null
-                          ? 'Pick start time'
-                          : 'Starts: ${_slotStart!.toLocal()}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onPressed: () => _pickSlot(context),
-                  ),
+                Text(
+                  'Appointment Slots',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 100,
-                  child: DropdownButtonFormField<int>(
-                    value: _duration,
-                    decoration: const InputDecoration(labelText: 'Minutes', border: OutlineInputBorder()),
-                    items: const [15, 30, 45, 60]
-                        .map((m) => DropdownMenuItem(value: m, child: Text('$m')))
-                        .toList(),
-                    onChanged: (v) => setState(() => _duration = v ?? 30),
-                  ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/createSlots');
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Slots'),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _slotStart == null || _saving ? null : () => _saveSlot(profile),
-              child: _saving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Save Slot'),
+            const SizedBox(height: 8),
+            const Text(
+              'Create time slots for patients to book appointments',
+              style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
-            Text('Your Slots', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
             StreamBuilder<List<Map<String, dynamic>>>(
               stream: slotsStream,
               builder: (context, snapshot) {
@@ -534,29 +526,208 @@ class _DoctorAppointmentsViewState extends ConsumerState<DoctorAppointmentsView>
                 }
                 final rows = snapshot.data ?? [];
                 if (rows.isEmpty) {
-                  return const Text('No slots yet');
-                }
-                return Column(
-                  children: rows.map((row) {
-                    final status = row['status'] ?? 'available';
-                    final start = DateTime.parse(row['appointment_date']).toLocal();
-                    final patientId = row['patient_id'] as String?;
-                    return Card(
-                      child: ListTile(
-                        leading: Icon(
-                          status == 'available' ? Icons.event_available : Icons.event,
-                          color: status == 'available' ? Colors.green : Colors.blue,
-                        ),
-                        title: Text('${start.toString()} • ${row['duration_minutes']} min'),
-                        subtitle: Text(
-                          patientId == null ? 'Available' : 'Booked by patient $patientId',
-                        ),
-                        trailing: Text(status),
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.event_available,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No slots created yet',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Create time slots for patients to book',
+                            style: TextStyle(color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pushNamed('/createSlots');
+                            },
+                            icon: const Icon(Icons.add_circle_outline),
+                            label: const Text('Create Your First Slot'),
+                          ),
+                        ],
                       ),
-                    );
-                  }).toList(),
+                    ),
+                  );
+                }
+
+                // Group slots by date
+                final groupedSlots = <String, List<Map<String, dynamic>>>{};
+                for (var row in rows) {
+                  final date = DateTime.parse(row['appointment_date']).toLocal();
+                  final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                  groupedSlots.putIfAbsent(dateKey, () => []);
+                  groupedSlots[dateKey]!.add(row);
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _buildLegendItem(Colors.green, 'Available', rows.where((r) => r['status'] == 'available').length),
+                        const SizedBox(width: 16),
+                        _buildLegendItem(Colors.blue, 'Booked', rows.where((r) => r['status'] == 'scheduled').length),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ...groupedSlots.entries.map((entry) {
+                      final slots = entry.value;
+                      final date = DateTime.parse(slots.first['appointment_date']).toLocal();
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              '${_getWeekday(date.weekday)}, ${date.day} ${_getMonth(date.month)} ${date.year}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: slots.map((row) {
+                              final status = row['status'] ?? 'available';
+                              final start = DateTime.parse(row['appointment_date']).toLocal();
+                              final isAvailable = status == 'available';
+                              
+                              return InkWell(
+                                onLongPress: isAvailable
+                                    ? () => _showDeleteSlotDialog(context, row['id'], start)
+                                    : null,
+                                child: Chip(
+                                  backgroundColor: isAvailable ? Colors.green.shade50 : Colors.blue.shade50,
+                                  side: BorderSide(
+                                    color: isAvailable ? Colors.green : Colors.blue,
+                                  ),
+                                  label: Text(
+                                    '${TimeOfDay.fromDateTime(start).format(context)} (${row['duration_minutes']}m)',
+                                    style: TextStyle(
+                                      color: isAvailable ? Colors.green.shade900 : Colors.blue.shade900,
+                                    ),
+                                  ),
+                                  avatar: Icon(
+                                    isAvailable ? Icons.event_available : Icons.event_busy,
+                                    size: 18,
+                                    color: isAvailable ? Colors.green : Colors.blue,
+                                  ),
+                                  deleteIcon: isAvailable ? const Icon(Icons.close, size: 18) : null,
+                                  onDeleted: isAvailable
+                                      ? () => _deleteSlot(context, row['id'])
+                                      : null,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    }),
+                  ],
                 );
               },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label, int count) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            border: Border.all(color: color),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text('$label ($count)', style: const TextStyle(fontSize: 14)),
+      ],
+    );
+  }
+
+  String _getWeekday(int weekday) {
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return weekdays[weekday - 1];
+  }
+
+  String _getMonth(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  Future<void> _deleteSlot(BuildContext context, String slotId) async {
+    try {
+      await SupabaseConfig.client
+          .from('appointments')
+          .delete()
+          .eq('id', slotId)
+          .eq('status', 'available'); // Extra safety: only delete if still available
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Slot deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete slot: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDeleteSlotDialog(BuildContext context, String slotId, DateTime time) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete Slot'),
+          content: Text(
+            'Are you sure you want to delete the slot at ${TimeOfDay.fromDateTime(time).format(context)}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _deleteSlot(context, slotId);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
             ),
           ],
         );
@@ -571,7 +742,7 @@ class DoctorProfileView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(doctorProfileProvider);
-    final tenant = ref.watch(selectedTenantProvider);
+    final currentHospital = ref.watch(currentHospitalProvider);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -645,21 +816,21 @@ class DoctorProfileView extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.business),
                   title: const Text('Clinic Name'),
-                  subtitle: Text(tenant?.name ?? 'N/A'),
+                  subtitle: Text(currentHospital?.name ?? 'N/A'),
                 ),
-                if (tenant?.branding != null) ...[
+                if (currentHospital?.branding != null) ...[
                   const Divider(),
                   ListTile(
                     leading: const Icon(Icons.palette),
                     title: const Text('Primary Color'),
-                    subtitle: Text(tenant!.branding!.primaryColor ?? 'Default'),
+                    subtitle: Text(currentHospital!.branding!.primaryColor ?? 'Default'),
                   ),
-                  if (tenant.branding!.fontFamily != null) ...[
+                  if (currentHospital.branding!.fontFamily != null) ...[
                     const Divider(),
                     ListTile(
                       leading: const Icon(Icons.font_download),
                       title: const Text('Font Family'),
-                      subtitle: Text(tenant.branding!.fontFamily!),
+                      subtitle: Text(currentHospital.branding!.fontFamily!),
                     ),
                   ],
                 ],
@@ -686,14 +857,28 @@ class DoctorProfileView extends ConsumerWidget {
               ),
               const Divider(height: 1),
               ListTile(
+                leading: const Icon(Icons.bug_report, color: Colors.orange),
+                title: const Text('Debug: Roles & Permissions', style: TextStyle(color: Colors.orange)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DebugRolesView(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
                 onTap: () async {
                   final authService = ref.read(authServiceProvider);
                   await authService.signOut();
                   
-                  // Clear the selected tenant
+                  // Clear both providers
                   ref.read(selectedTenantProvider.notifier).clearTenant();
+                  ref.read(currentHospitalProvider.notifier).state = null;
                   
                   // Navigate back to login
                   if (context.mounted) {

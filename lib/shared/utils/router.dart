@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/doctor/doctor_dashboard.dart';
+import '../../app/doctor/add_patient_screen.dart';
+import '../../app/doctor/create_slots_screen.dart';
 import '../../app/patient/patient_dashboard.dart';
 import '../../core/auth/login_screen.dart';
 import '../../core/auth/doctor_registration_screen.dart';
@@ -16,6 +18,8 @@ class AppRouter {
   static const String selectTenantRoute = '/selectTenant';
   static const String doctorDashboardRoute = '/doctorDashboard';
   static const String patientDashboardRoute = '/patientDashboard';
+  static const String addPatientRoute = '/addPatient';
+  static const String createSlotsRoute = '/createSlots';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -51,6 +55,16 @@ class AppRouter {
           builder: (_) => const RoleGuardScreen(
             child: PatientDashboard(),
           ),
+          settings: settings,
+        );
+      case addPatientRoute:
+        return MaterialPageRoute(
+          builder: (_) => const AddPatientScreen(),
+          settings: settings,
+        );
+      case createSlotsRoute:
+        return MaterialPageRoute(
+          builder: (_) => const CreateSlotsScreen(),
           settings: settings,
         );
       default:

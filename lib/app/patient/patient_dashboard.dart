@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/tenant/tenant_service.dart';
+import '../../core/patient/patient_service.dart';
+import '../../shared/utils/router.dart';
+import 'appointment_booking_view.dart';
+import 'my_appointments_view.dart';
 
 class PatientDashboard extends ConsumerStatefulWidget {
   const PatientDashboard({super.key});
@@ -15,8 +19,8 @@ class _PatientDashboardState extends ConsumerState<PatientDashboard> {
 
   final List<Widget> _pages = [
     const PatientHomeView(),
-    const PatientAppointmentsView(),
-    const PatientRecordsView(),
+    const AppointmentBookingView(),
+    const MyAppointmentsView(),
     const PatientProfileView(),
   ];
 
@@ -49,14 +53,14 @@ class _PatientDashboardState extends ConsumerState<PatientDashboard> {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: 'Appointments',
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Book',
           ),
           NavigationDestination(
-            icon: Icon(Icons.folder_outlined),
-            selectedIcon: Icon(Icons.folder),
-            label: 'Records',
+            icon: Icon(Icons.event_note_outlined),
+            selectedIcon: Icon(Icons.event_note),
+            label: 'My Appointments',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outlined),
@@ -346,84 +350,164 @@ class PatientProfileView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
+    final patientAsync = ref.watch(currentPatientProfileProvider);
+
+    return patientAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Error loading profile: $error'),
+          ],
+        ),
+      ),
+      data: (patient) {
+        if (patient == null) {
+          return const Center(
+            child: Text('No patient profile found'),
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const CircleAvatar(
+                      radius: 48,
+                      child: Icon(Icons.person, size: 48),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      patient.fullName,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Patient ID: ${patient.id.substring(0, 8)}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Personal Information',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    if (patient.email != null)
+                      _buildInfoRow(Icons.email, 'Email', patient.email!),
+                    if (patient.phone != null)
+                      _buildInfoRow(Icons.phone, 'Phone', patient.phone!),
+                    if (patient.dateOfBirth != null)
+                      _buildInfoRow(
+                        Icons.cake,
+                        'Date of Birth',
+                        '${patient.dateOfBirth!.day}/${patient.dateOfBirth!.month}/${patient.dateOfBirth!.year}',
+                      ),
+                    if (patient.gender != null)
+                      _buildInfoRow(
+                          Icons.person_outline, 'Gender', patient.gender!),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.medical_information),
+                    title: const Text('Medical History'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {},
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.settings),
+                    title: const Text('Settings'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {},
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.help_outline),
+                    title: const Text('Help & Support'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {},
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text('Sign Out',
+                        style: TextStyle(color: Colors.red)),
+                    onTap: () async {
+                      final authService = ref.read(authServiceProvider);
+                      await authService.signOut();
+
+                      // Clear the selected tenant
+                      ref.read(selectedTenantProvider.notifier).clearTenant();
+
+                      // Navigate back to login
+                      if (context.mounted) {
+                        Navigator.of(context)
+                            .pushReplacementNamed(AppRouter.loginRoute);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 48,
-                  child: Icon(Icons.person, size: 48),
-                ),
-                SizedBox(height: 16),
                 Text(
-                  'John Doe',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  'Patient ID: 12345',
-                  style: TextStyle(color: Colors.grey),
+                  value,
+                  style: const TextStyle(fontSize: 16),
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text('Personal Information'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.medical_information),
-                title: const Text('Medical History'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Settings'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.help_outline),
-                title: const Text('Help & Support'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
-                onTap: () async {
-                  final authService = ref.read(authServiceProvider);
-                  await authService.signOut();
-                  
-                  // Clear the selected tenant
-                  ref.read(selectedTenantProvider.notifier).clearTenant();
-                  
-                  // Navigate back to login
-                  if (context.mounted) {
-                    Navigator.of(context).pushReplacementNamed('login');
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

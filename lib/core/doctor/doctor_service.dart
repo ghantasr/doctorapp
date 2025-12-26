@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../supabase/supabase_config.dart';
-import '../tenant/tenant_service.dart';
 import '../auth/auth_service.dart';
+import '../../shared/widgets/hospital_selector.dart';
 
 class DoctorProfile {
   final String id;
@@ -14,6 +14,8 @@ class DoctorProfile {
   final String? email;
   final String tenantId;
   final String userId;
+  final bool isSuspended;
+  final DateTime? suspendedAt;
 
   DoctorProfile({
     required this.id,
@@ -25,6 +27,8 @@ class DoctorProfile {
     this.email,
     required this.tenantId,
     required this.userId,
+    this.isSuspended = false,
+    this.suspendedAt,
   });
 
   String get fullName => '$firstName $lastName';
@@ -40,6 +44,10 @@ class DoctorProfile {
       email: json['email'] as String?,
       tenantId: json['tenant_id'] as String,
       userId: json['user_id'] as String,
+      isSuspended: json['is_suspended'] as bool? ?? false,
+      suspendedAt: json['suspended_at'] != null
+          ? DateTime.parse(json['suspended_at'])
+          : null,
     );
   }
 }
@@ -99,15 +107,15 @@ final doctorServiceProvider = Provider<DoctorService>((ref) {
 final doctorProfileProvider = FutureProvider<DoctorProfile?>((ref) async {
   final doctorService = ref.watch(doctorServiceProvider);
   final authService = ref.watch(authServiceProvider);
-  final tenant = ref.watch(selectedTenantProvider);
+  final currentHospital = ref.watch(currentHospitalProvider);
 
   final userId = authService.currentUser?.id;
-  if (userId == null || tenant == null) {
+  if (userId == null || currentHospital == null) {
     return null;
   }
 
   return doctorService.getDoctorProfile(
     userId: userId,
-    tenantId: tenant.id,
+    tenantId: currentHospital.id,
   );
 });

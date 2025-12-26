@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/patient/patient_service.dart';
+import 'medical_records_screen.dart';
 
 class PatientDetailScreen extends StatelessWidget {
   final PatientInfo patient;
@@ -53,10 +54,20 @@ class PatientDetailScreen extends StatelessWidget {
             ),
           ),
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('Medical Records'),
-              subtitle: const Text('Coming soon'),
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MedicalRecordsScreen(patient: patient),
+                  ),
+                );
+              },
+              child: const ListTile(
+                leading: Icon(Icons.medical_information),
+                title: Text('Medical Records'),
+                subtitle: Text('View and manage visit history'),
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              ),
             ),
           ),
         ],
