@@ -4,7 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/supabase/supabase_config.dart';
 
-// Provider for admin follow-up patients due soon (within 2 days)
+// Configuration constant for follow-up reminder advance notice
+const int kFollowUpReminderDaysAdvance = 2;
+
+// Provider for admin follow-up patients due soon (within kFollowUpReminderDaysAdvance days)
 final adminFollowUpDueSoonProvider = StreamProvider.autoDispose((ref) async* {
   final stream = SupabaseConfig.client
       .from('admin_follow_up_due_soon')
@@ -86,9 +89,9 @@ class AdminFollowUpDueView extends ConsumerWidget {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Patients with follow-ups due within 2 days will appear here',
-                    style: TextStyle(color: Colors.grey),
+                  Text(
+                    'Patients with follow-ups due within $kFollowUpReminderDaysAdvance days will appear here',
+                    style: const TextStyle(color: Colors.grey),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -318,7 +321,7 @@ class AdminFollowUpDueView extends ConsumerWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Reminder will be automatically sent 2 days before follow-up',
+                              'Reminder will be automatically sent $kFollowUpReminderDaysAdvance days before follow-up',
                             ),
                             backgroundColor: Colors.blue,
                           ),

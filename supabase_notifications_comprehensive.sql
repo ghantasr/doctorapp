@@ -72,7 +72,40 @@ CREATE POLICY "Patients can view their own reminders"
 CREATE INDEX IF NOT EXISTS idx_daily_reminders_patient ON public.daily_reminders(patient_id, is_active) 
 WHERE is_active = true;
 
--- 4. Function to get follow-up patients due in 2 days (for notifications)
+-- 4. Create notification_templates table for customizable messages
+CREATE TABLE IF NOT EXISTS public.notification_templates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  template_key TEXT UNIQUE NOT NULL,
+  template_type TEXT NOT NULL,
+  title_template TEXT NOT NULL,
+  body_template TEXT NOT NULL,
+  language_code TEXT DEFAULT 'en',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.notification_templates ENABLE ROW LEVEL SECURITY;
+
+-- Allow authenticated users to read notification templates
+DROP POLICY IF EXISTS "Users can read notification templates" ON public.notification_templates;
+CREATE POLICY "Users can read notification templates"
+  ON public.notification_templates
+  FOR SELECT
+  USING (is_active = true);
+
+-- Insert default notification templates
+INSERT INTO public.notification_templates (template_key, template_type, title_template, body_template, language_code)
+VALUES 
+  ('follow_up_reminder_2day', 'follow_up_reminder', 'Follow-up Reminder', 'You have a follow-up appointment in 2 days on {follow_up_date}', 'en'),
+  ('mouthwash_morning', 'mouthwash_reminder', 'Mouthwash Reminder', 'Good morning! Time for your mouthwash rinse to maintain oral hygiene.', 'en'),
+  ('mouthwash_evening', 'mouthwash_reminder', 'Mouthwash Reminder', 'Good evening! Don''t forget your mouthwash rinse before bed.', 'en')
+ON CONFLICT (template_key) DO NOTHING;
+
+CREATE INDEX IF NOT EXISTS idx_notification_templates_key ON public.notification_templates(template_key) 
+WHERE is_active = true;
+
+-- 5. Function to get follow-up patients due in 2 days (for notifications)
 CREATE OR REPLACE FUNCTION get_follow_up_patients_due_in_days(days_advance INTEGER DEFAULT 2)
 RETURNS TABLE(
   patient_id UUID,
@@ -113,7 +146,7 @@ BEGIN
 END;
 $$;
 
--- 5. Function to get all active mouthwash reminders that should be sent
+-- 6. Function to get all active mouthwash reminders that should be sent
 CREATE OR REPLACE FUNCTION get_active_mouthwash_reminders()
 RETURNS TABLE(
   patient_id UUID,
@@ -141,7 +174,8 @@ BEGIN
 END;
 $$;
 
--- 6. Function to send follow-up notification (to be called by Edge Function)
+-- 7. Function to send follow-up notification (to be called by Edge Function)
+-- Uses notification templates for customizable messages
 CREATE OR REPLACE FUNCTION send_follow_up_notification(
   p_patient_id UUID,
   p_follow_up_date TIMESTAMPTZ
@@ -153,6 +187,8 @@ AS $$
 DECLARE
   v_patient_user_id UUID;
   v_fcm_token TEXT;
+  v_title TEXT;
+  v_body TEXT;
   v_result JSONB;
 BEGIN
   -- Get patient's user ID and FCM token
@@ -166,6 +202,21 @@ BEGIN
   SELECT fcm_token INTO v_fcm_token 
   FROM public.user_fcm_tokens 
   WHERE user_id = v_patient_user_id;
+  
+  -- Get notification template
+  SELECT title_template, body_template INTO v_title, v_body
+  FROM public.notification_templates
+  WHERE template_key = 'follow_up_reminder_2day' AND is_active = true
+  LIMIT 1;
+  
+  -- Fallback to default if template not found
+  IF v_title IS NULL THEN
+    v_title := 'Follow-up Reminder';
+    v_body := 'You have a follow-up appointment in 2 days on ' || to_char(p_follow_up_date, 'Mon DD, YYYY');
+  ELSE
+    -- Replace template placeholders
+    v_body := REPLACE(v_body, '{follow_up_date}', to_char(p_follow_up_date, 'Mon DD, YYYY'));
+  END IF;
   
   -- Log the notification
   INSERT INTO public.notification_logs (
@@ -178,8 +229,8 @@ BEGIN
   ) VALUES (
     v_patient_user_id,
     'follow_up_reminder',
-    'Follow-up Reminder',
-    'You have a follow-up appointment in 2 days on ' || to_char(p_follow_up_date, 'Mon DD, YYYY'),
+    v_title,
+    v_body,
     jsonb_build_object('follow_up_date', p_follow_up_date),
     CASE WHEN v_fcm_token IS NOT NULL THEN 'sent' ELSE 'no_token' END
   );
@@ -192,7 +243,8 @@ BEGIN
 END;
 $$;
 
--- 7. Function to send mouthwash reminder (to be called by Edge Function)
+-- 8. Function to send mouthwash reminder (to be called by Edge Function)
+-- Uses notification templates for customizable messages
 CREATE OR REPLACE FUNCTION send_mouthwash_notification(
   p_patient_id UUID,
   p_reminder_text TEXT,
@@ -205,6 +257,9 @@ AS $$
 DECLARE
   v_patient_user_id UUID;
   v_fcm_token TEXT;
+  v_title TEXT;
+  v_body TEXT;
+  v_template_key TEXT;
   v_result JSONB;
 BEGIN
   -- Get patient's user ID and FCM token
@@ -219,6 +274,21 @@ BEGIN
   FROM public.user_fcm_tokens 
   WHERE user_id = v_patient_user_id;
   
+  -- Determine template key based on time of day
+  v_template_key := 'mouthwash_' || p_time_of_day;
+  
+  -- Get notification template
+  SELECT title_template, body_template INTO v_title, v_body
+  FROM public.notification_templates
+  WHERE template_key = v_template_key AND is_active = true
+  LIMIT 1;
+  
+  -- Fallback to provided reminder text if template not found
+  IF v_title IS NULL THEN
+    v_title := 'Mouthwash Reminder';
+    v_body := p_reminder_text;
+  END IF;
+  
   -- Log the notification
   INSERT INTO public.notification_logs (
     user_id,
@@ -230,8 +300,8 @@ BEGIN
   ) VALUES (
     v_patient_user_id,
     'mouthwash_reminder',
-    'Mouthwash Reminder',
-    p_reminder_text,
+    v_title,
+    v_body,
     jsonb_build_object('time_of_day', p_time_of_day),
     CASE WHEN v_fcm_token IS NOT NULL THEN 'sent' ELSE 'no_token' END
   );
@@ -244,7 +314,7 @@ BEGIN
 END;
 $$;
 
--- 8. Insert default mouthwash reminders for all existing patients (morning and evening)
+-- 9. Insert default mouthwash reminders for all existing patients (morning and evening)
 INSERT INTO public.daily_reminders (patient_id, reminder_type, reminder_text, time_of_day, is_active)
 SELECT 
   id,
@@ -275,7 +345,7 @@ WHERE NOT EXISTS (
   AND time_of_day = 'evening'
 );
 
--- 9. Create a view for admin to see follow-up patients due in 2 days
+-- 10. Create a view for admin to see follow-up patients due in 2 days
 CREATE OR REPLACE VIEW admin_follow_up_due_soon AS
 SELECT 
   p.id as patient_id,
@@ -302,8 +372,9 @@ GRANT SELECT ON admin_follow_up_due_soon TO authenticated;
 COMMENT ON TABLE public.user_fcm_tokens IS 'Stores Firebase Cloud Messaging tokens for push notifications';
 COMMENT ON TABLE public.notification_logs IS 'Logs all sent notifications for auditing and tracking';
 COMMENT ON TABLE public.daily_reminders IS 'Daily reminders for patients (mouthwash, medication, etc.)';
+COMMENT ON TABLE public.notification_templates IS 'Customizable notification message templates with multi-language support';
 COMMENT ON FUNCTION get_follow_up_patients_due_in_days IS 'Returns patients with follow-ups due in specified days (default 2)';
 COMMENT ON FUNCTION get_active_mouthwash_reminders IS 'Returns all active mouthwash reminders for patients';
-COMMENT ON FUNCTION send_follow_up_notification IS 'Sends follow-up reminder notification to patient';
-COMMENT ON FUNCTION send_mouthwash_notification IS 'Sends mouthwash reminder notification to patient';
+COMMENT ON FUNCTION send_follow_up_notification IS 'Sends follow-up reminder notification to patient using templates';
+COMMENT ON FUNCTION send_mouthwash_notification IS 'Sends mouthwash reminder notification to patient using templates';
 COMMENT ON VIEW admin_follow_up_due_soon IS 'Admin view of patients with follow-ups due within 2 days';
