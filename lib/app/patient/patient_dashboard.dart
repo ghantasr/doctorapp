@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/tenant/tenant_service.dart';
 import '../../core/patient/patient_service.dart';
+import '../../core/supabase/supabase_config.dart';
 import '../../shared/utils/router.dart';
-import 'appointment_booking_view.dart';
-import 'my_appointments_view.dart';
+import 'appointments_view.dart';
+import 'patient_bills_view.dart';
+import 'patient_prescriptions_view.dart';
 
 class PatientDashboard extends ConsumerStatefulWidget {
   const PatientDashboard({super.key});
@@ -19,10 +21,15 @@ class _PatientDashboardState extends ConsumerState<PatientDashboard> {
 
   final List<Widget> _pages = [
     const PatientHomeView(),
-    const AppointmentBookingView(),
-    const MyAppointmentsView(),
+    const AppointmentsView(),
     const PatientProfileView(),
   ];
+  
+  void _changeTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +38,7 @@ class _PatientDashboardState extends ConsumerState<PatientDashboard> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tenant?.name ?? 'Patient App'),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
@@ -55,12 +63,7 @@ class _PatientDashboardState extends ConsumerState<PatientDashboard> {
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
-            label: 'Book',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_note_outlined),
-            selectedIcon: Icon(Icons.event_note),
-            label: 'My Appointments',
+            label: 'Appointments',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outlined),
@@ -151,7 +154,13 @@ class PatientHomeView extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          // Switch to booking tab
+                          final dashboardState = context.findAncestorStateOfType<_PatientDashboardState>();
+                          if (dashboardState != null) {
+                            dashboardState._changeTab(1);
+                          }
+                        },
                         child: const Text('Book Now'),
                       ),
                     ],
@@ -174,8 +183,40 @@ class PatientHomeView extends ConsumerWidget {
           children: [
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.medical_services,
-                label: 'Medications',
+                icon: Icons.receipt_long,
+                label: 'My Bills',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PatientBillsView(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.medication,
+                label: 'Prescriptions',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PatientPrescriptionsView(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.history,
+                label: 'Medical History',
                 onTap: () {},
               ),
             ),
@@ -189,26 +230,6 @@ class PatientHomeView extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.assignment,
-                label: 'Prescriptions',
-                onTap: () {},
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.upload_file,
-                label: 'Upload Files',
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
         Text(
           'Upcoming Appointments',
@@ -217,19 +238,7 @@ class PatientHomeView extends ConsumerWidget {
               ),
         ),
         const SizedBox(height: 12),
-        _AppointmentCard(
-          doctorName: 'Dr. Sarah Johnson',
-          specialty: 'Cardiologist',
-          date: 'Tomorrow',
-          time: '10:00 AM',
-        ),
-        const SizedBox(height: 8),
-        _AppointmentCard(
-          doctorName: 'Dr. Michael Chen',
-          specialty: 'Dermatologist',
-          date: 'Jan 15, 2026',
-          time: '2:30 PM',
-        ),
+        _UpcomingAppointmentsWidget(),
       ],
     );
   }
@@ -508,6 +517,100 @@ class PatientProfileView extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _UpcomingAppointmentsWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final patientAsync = ref.watch(currentPatientProfileProvider);
+
+    return patientAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => const Center(child: Text('Error loading appointments')),
+      data: (patient) {
+        if (patient == null) {
+          return const Text('No patient profile found');
+        }
+
+        final appointmentsStream = SupabaseConfig.client
+            .from('appointments')
+            .stream(primaryKey: ['id'])
+            .order('appointment_date')
+            .asyncMap((rows) async {
+              // Filter to patient's scheduled appointments
+              final filtered = rows.where((apt) {
+                try {
+                  if (apt['patient_id'] != patient.id) return false;
+                  if (apt['status'] != 'scheduled') return false;
+                  final aptDate = DateTime.parse(apt['appointment_date']);
+                  return aptDate.isAfter(DateTime.now());
+                } catch (e) {
+                  return false;
+                }
+              }).toList();
+              // Take only first 3
+              return filtered.take(3).toList();
+            });
+
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: appointmentsStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final appointments = snapshot.data ?? [];
+
+            if (appointments.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.event_note, size: 48, color: Colors.grey),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'No upcoming appointments',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () {
+                          // Switch to booking tab
+                          final dashboardContext = context.findAncestorStateOfType<_PatientDashboardState>();
+                          if (dashboardContext != null) {
+                            dashboardContext._changeTab(1);
+                          }
+                        },
+                        child: const Text('Book Now'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: appointments.map((apt) {
+                final date = DateTime.parse(apt['appointment_date']);
+                final time = apt['appointment_time'] ?? '';
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _AppointmentCard(
+                    doctorName: apt['doctor_name'] ?? 'Doctor',
+                    specialty: apt['specialty'] ?? 'General',
+                    date: '${date.day}/${date.month}/${date.year}',
+                    time: time,
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
     );
   }
 }

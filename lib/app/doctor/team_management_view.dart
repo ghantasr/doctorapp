@@ -69,7 +69,7 @@ class _TeamManagementViewState extends ConsumerState<TeamManagementView> {
         ref.invalidate(hospitalDoctorsProvider(currentHospital.id));
       },
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
         children: [
           // Header
           Card(

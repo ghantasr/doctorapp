@@ -1,7 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'user_role.freezed.dart';
-part 'user_role.g.dart';
 
 enum UserRole {
   @JsonValue('doctor')
@@ -52,11 +51,4 @@ class UserTenantRole with _$UserTenantRole {
           : null,
     );
   }
-
-  Map<String, dynamic> toJson() => {
-    'user_id': userId,
-    'tenant_id': tenantId,
-    'role': role.name,
-    'created_at': createdAt?.toIso8601String(),
-  };
 }

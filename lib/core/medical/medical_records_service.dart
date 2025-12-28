@@ -81,7 +81,9 @@ class MedicalVisit {
   final String? diagnosis;
   final String? treatmentPlan;
   final String? notes;
+  final String status; // 'draft' or 'submitted'
   final List<ToothRecord> toothRecords;
+  final String? xrayUrl;
 
   MedicalVisit({
     required this.id,
@@ -93,8 +95,13 @@ class MedicalVisit {
     this.diagnosis,
     this.treatmentPlan,
     this.notes,
+    this.status = 'draft',
     this.toothRecords = const [],
+    this.xrayUrl,
   });
+
+  bool get isSubmitted => status == 'submitted';
+  bool get isDraft => status == 'draft';
 
   factory MedicalVisit.fromJson(Map<String, dynamic> json) {
     final content = json['content'] as Map<String, dynamic>? ?? {};
@@ -111,7 +118,9 @@ class MedicalVisit {
       diagnosis: content['diagnosis'],
       treatmentPlan: content['treatment_plan'],
       notes: content['notes'],
+      status: content['status'] ?? 'draft',
       toothRecords: [],
+      xrayUrl: content['xray_url'],
     );
   }
 }
@@ -160,6 +169,8 @@ class MedicalRecordsService {
     String? diagnosis,
     String? treatmentPlan,
     String? notes,
+    String status = 'draft',
+    String? xrayUrl,
   }) async {
     try {
       final content = {
@@ -167,8 +178,11 @@ class MedicalRecordsService {
         'diagnosis': diagnosis,
         'treatment_plan': treatmentPlan,
         'notes': notes,
+        'status': status,
+        'xray_url': xrayUrl,
       };
       
+      final now = DateTime.now();
       final response = await _client
           .from('medical_records')
           .insert({
@@ -176,9 +190,9 @@ class MedicalRecordsService {
             'doctor_id': doctorId,
             'tenant_id': tenantId,
             'record_type': 'visit',
-            'title': 'Medical Visit - ${DateTime.now().toString().split(' ')[0]}',
+            'title': 'Medical Visit - ${now.toString().split('.')[0]}',
             'content': content,
-            'record_date': DateTime.now().toIso8601String().split('T')[0],
+            'record_date': now.toIso8601String(),
           })
           .select()
           .single();
@@ -222,17 +236,46 @@ class MedicalRecordsService {
     String? diagnosis,
     String? treatmentPlan,
     String? notes,
+    String? status,
+    String? xrayUrl,
   }) async {
     try {
-      await _client.from('medical_visits').update({
+      final content = {
         'chief_complaint': chiefComplaint,
         'diagnosis': diagnosis,
         'treatment_plan': treatmentPlan,
         'notes': notes,
+        'status': status ?? 'draft',
+        'xray_url': xrayUrl,
+      };
+      
+      await _client.from('medical_records').update({
+        'content': content,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', visitId);
     } catch (e) {
       throw Exception('Failed to update visit: $e');
+    }
+  }
+  
+  Future<void> submitVisit(String visitId) async {
+    try {
+      // Get current visit to preserve data
+      final visit = await _client
+          .from('medical_records')
+          .select()
+          .eq('id', visitId)
+          .single();
+      
+      final content = visit['content'] as Map<String, dynamic>;
+      content['status'] = 'submitted';
+      
+      await _client.from('medical_records').update({
+        'content': content,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', visitId);
+    } catch (e) {
+      throw Exception('Failed to submit visit: $e');
     }
   }
 }

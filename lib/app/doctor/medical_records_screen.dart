@@ -119,6 +119,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
                     final visit = visits[index];
                     return _VisitCard(
                       visit: visit,
+                      patient: patient,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -126,6 +127,19 @@ class MedicalRecordsScreen extends ConsumerWidget {
                           ),
                         );
                       },
+                      onEdit: visit.isDraft ? () async {
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CreateVisitScreen(
+                              patient: patient,
+                              existingVisit: visit,
+                            ),
+                          ),
+                        );
+                        if (result == true) {
+                          ref.invalidate(patientVisitsProvider(patient.id));
+                        }
+                      } : null,
                     );
                   },
                 );
@@ -154,9 +168,16 @@ class MedicalRecordsScreen extends ConsumerWidget {
 
 class _VisitCard extends StatelessWidget {
   final MedicalVisit visit;
+  final PatientInfo patient;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
 
-  const _VisitCard({required this.visit, required this.onTap});
+  const _VisitCard({
+    required this.visit,
+    required this.patient,
+    required this.onTap,
+    this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +202,28 @@ class _VisitCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Chip(
+                    label: Text(
+                      visit.isSubmitted ? 'Submitted' : 'Draft',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    backgroundColor: visit.isSubmitted 
+                        ? Colors.green.shade100 
+                        : Colors.orange.shade100,
+                    padding: EdgeInsets.zero,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   const Spacer(),
+                  if (onEdit != null)
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 20),
+                      onPressed: onEdit,
+                      tooltip: 'Edit Draft',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  const SizedBox(width: 8),
                   const Icon(Icons.arrow_forward_ios, size: 16),
                 ],
               ),

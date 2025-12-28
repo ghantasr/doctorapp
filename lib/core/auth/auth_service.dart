@@ -151,3 +151,8 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
   final authService = ref.watch(authServiceProvider);
   return authService.authStateChanges;
 });
+
+final currentUserProvider = StreamProvider<User?>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  return authService.authStateChanges.map((state) => state.session?.user);
+});

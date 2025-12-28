@@ -12,6 +12,11 @@ import '../../shared/widgets/hospital_selector.dart';
 import 'team_management_view.dart';
 import 'debug_roles_view.dart';
 import 'join_clinic_screen.dart';
+import 'my_bills_view.dart';
+import 'my_prescriptions_view.dart';
+import 'analytics_view.dart';
+import 'doctor_appointments_enhanced_view.dart';
+import 'follow_up_patients_view.dart';
 
 class DoctorDashboard extends ConsumerStatefulWidget {
   const DoctorDashboard({super.key});
@@ -26,10 +31,39 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
   final List<Widget> _pages = [
     const DoctorHomeView(),
     const DoctorPatientsView(),
-    const DoctorAppointmentsView(),
-    const TeamManagementView(),
-    const DoctorProfileView(),
+    const DoctorAppointmentsEnhancedView(),
+    const AnalyticsView(),
   ];
+
+  void _navigateToPrescriptions() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const MyPrescriptionsView()),
+    );
+  }
+
+  void _navigateToBills() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const MyBillsView()),
+    );
+  }
+
+  void _navigateToTeam() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const TeamManagementView()),
+    );
+  }
+
+  void _navigateToProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const DoctorProfileView()),
+    );
+  }
+
+  void _navigateToFollowUps() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const FollowUpPatientsView()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,11 +106,18 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
           ],
         ),
         automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            tooltip: 'Menu',
+          ),
+        ),
         actions: [
           const HospitalChip(),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.share),
+            icon: const Icon(Icons.share_rounded),
             tooltip: 'Share Clinic',
             onPressed: () {
               showDialog(
@@ -91,40 +132,276 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
           ),
         ],
       ),
+      drawer: _buildDrawer(context),
       body: _pages[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            setState(() => _selectedIndex = index);
+          },
+          elevation: 0,
+          height: 70,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined, size: 26),
+              selectedIcon: Icon(Icons.home_rounded, size: 26),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline_rounded, size: 26),
+              selectedIcon: Icon(Icons.people_rounded, size: 26),
+              label: 'Patients',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined, size: 26),
+              selectedIcon: Icon(Icons.calendar_month_rounded, size: 26),
+              label: 'Appointments',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.analytics_outlined, size: 26),
+              selectedIcon: Icon(Icons.analytics_rounded, size: 26),
+              label: 'Analytics',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    final theme = Theme.of(context);
+    final doctorProfileAsync = ref.watch(doctorProfileProvider);
+    final currentHospital = ref.watch(currentHospitalProvider);
+    
+    return Drawer(
+      child: Column(
+        children: [
+          doctorProfileAsync.when(
+            loading: () => const DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue, Colors.blueAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(child: CircularProgressIndicator(color: Colors.white)),
+            ),
+            error: (error, _) => DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue, Colors.blueAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Center(
+                child: Icon(Icons.error_outline, color: Colors.white, size: 48),
+              ),
+            ),
+            data: (profile) => DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [theme.colorScheme.primary, theme.colorScheme.primaryContainer],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 35,
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      profile != null ? profile.firstName[0].toUpperCase() : 'D',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (profile != null) ...[
+                    Text(
+                      'Dr. ${profile.fullName}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      profile.specialty,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outlined),
-            selectedIcon: Icon(Icons.people),
-            label: 'Patients',
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.receipt_long_rounded,
+                  title: 'Bills',
+                  subtitle: 'View all bills',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _navigateToBills();
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.medication_rounded,
+                  title: 'Prescriptions',
+                  subtitle: 'View all prescriptions',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _navigateToPrescriptions();
+                  },
+                ),
+                const Divider(height: 1),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.event_repeat_rounded,
+                  title: 'Follow-Up Patients',
+                  subtitle: 'Patients due for follow-up',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _navigateToFollowUps();
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.group_rounded,
+                  title: 'Team Management',
+                  subtitle: 'Manage clinic staff',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _navigateToTeam();
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.person_rounded,
+                  title: 'My Profile',
+                  subtitle: 'View and edit profile',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _navigateToProfile();
+                  },
+                ),
+                const Divider(height: 1),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.settings_rounded,
+                  title: 'Settings',
+                  subtitle: 'App preferences',
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: Navigate to settings
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.help_outline_rounded,
+                  title: 'Help & Support',
+                  subtitle: 'Get assistance',
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: Navigate to help
+                  },
+                ),
+                const Divider(height: 1),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.logout_rounded,
+                  title: 'Sign Out',
+                  subtitle: 'Logout from account',
+                  iconColor: Colors.red,
+                  onTap: () async {
+                    Navigator.pop(context); // Close drawer first
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Sign Out'),
+                        content: const Text('Are you sure you want to sign out?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Sign Out'),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (confirm == true && context.mounted) {
+                      await ref.read(authServiceProvider).signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                          '/login',
+                          (route) => false,
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: 'Appointments',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.group_outlined),
-            selectedIcon: Icon(Icons.group),
-            label: 'Team',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outlined),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              currentHospital?.name ?? 'Doctor App',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDrawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(title),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
     );
   }
 }
@@ -248,7 +525,7 @@ class DoctorHomeView extends ConsumerWidget {
                   Expanded(
                     child: _StatCard(
                       title: 'Pending',
-                      value: '3',
+                      value: stats.pendingAppointments.toString(),
                       icon: Icons.pending_actions,
                       color: Colors.red,
                     ),
@@ -267,14 +544,42 @@ class DoctorHomeView extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         appointmentsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Error loading appointments: $error'),
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          error: (error, stack) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text('Error loading appointments: $error'),
+            ),
+          ),
           data: (appointments) {
             if (appointments.isEmpty) {
-              return const Center(
+              return Card(
                 child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('No upcoming appointments'),
+                  padding: const EdgeInsets.all(32.0),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No upcoming appointments',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             }
@@ -283,6 +588,7 @@ class DoctorHomeView extends ConsumerWidget {
                   .map((appointment) => Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: _AppointmentCard(
+                          patientId: appointment.patientId,
                           patientName: appointment.patientName,
                           time: appointment.appointmentTime,
                           type: appointment.type,
@@ -342,15 +648,41 @@ class _StatCard extends StatelessWidget {
 }
 
 class _AppointmentCard extends StatelessWidget {
+  final String patientId;
   final String patientName;
   final String time;
   final String type;
 
   const _AppointmentCard({
+    required this.patientId,
     required this.patientName,
     required this.time,
     required this.type,
   });
+
+  String _formatTime(String isoTime) {
+    try {
+      final dateTime = DateTime.parse(isoTime);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final appointmentDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+      
+      final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
+      final minute = dateTime.minute.toString().padLeft(2, '0');
+      final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+      
+      if (appointmentDate == today) {
+        return 'Today, $hour:$minute $period';
+      } else if (appointmentDate == today.add(const Duration(days: 1))) {
+        return 'Tomorrow, $hour:$minute $period';
+      } else {
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return '${months[dateTime.month - 1]} ${dateTime.day}, $hour:$minute $period';
+      }
+    } catch (e) {
+      return time;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -363,21 +695,90 @@ class _AppointmentCard extends StatelessWidget {
           patientName,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text('$type • $time'),
+        subtitle: Text('$type • ${_formatTime(time)}'),
         trailing: IconButton(
           icon: const Icon(Icons.arrow_forward_ios, size: 16),
-          onPressed: () {},
+          onPressed: () async {
+            if (patientId.isEmpty) return;
+            
+            // Fetch patient details
+            try {
+              final patientData = await SupabaseConfig.client
+                  .from('patients')
+                  .select()
+                  .eq('id', patientId)
+                  .single();
+              
+              final patient = PatientInfo.fromJson(patientData);
+              
+              if (context.mounted) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => PatientDetailScreen(patient: patient),
+                  ),
+                );
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error loading patient: $e')),
+                );
+              }
+            }
+          },
         ),
+        onTap: () async {
+          if (patientId.isEmpty) return;
+          
+          // Fetch patient details
+          try {
+            final patientData = await SupabaseConfig.client
+                .from('patients')
+                .select()
+                .eq('id', patientId)
+                .single();
+            
+            final patient = PatientInfo.fromJson(patientData);
+            
+            if (context.mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => PatientDetailScreen(patient: patient),
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error loading patient: $e')),
+              );
+            }
+          }
+        },
       ),
     );
   }
 }
 
-class DoctorPatientsView extends ConsumerWidget {
+class DoctorPatientsView extends ConsumerStatefulWidget {
   const DoctorPatientsView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DoctorPatientsView> createState() => _DoctorPatientsViewState();
+}
+
+class _DoctorPatientsViewState extends ConsumerState<DoctorPatientsView> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final patientsAsync = ref.watch(patientsListProvider);
 
     return Scaffold(
@@ -394,6 +795,15 @@ class DoctorPatientsView extends ConsumerWidget {
           ),
         ),
         data: (patients) {
+          // Filter patients based on search query
+          final filteredPatients = patients.where((patient) {
+            if (_searchQuery.isEmpty) return true;
+            final query = _searchQuery.toLowerCase();
+            return patient.fullName.toLowerCase().contains(query) ||
+                   (patient.email?.toLowerCase().contains(query) ?? false) ||
+                   (patient.phone?.contains(query) ?? false);
+          }).toList();
+
           if (patients.isEmpty) {
             return Center(
               child: Column(
@@ -418,59 +828,125 @@ class DoctorPatientsView extends ConsumerWidget {
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
+          return Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Total Patients: ${patients.length}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pushNamed('/addPatient');
-                    },
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Add Patient'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ...patients.map((patient) => Card(
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Text(
-                          patient.firstName[0].toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      title: Text(
-                        patient.fullName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (patient.email != null)
-                            Text('📧 ${patient.email}'),
-                          if (patient.phone != null)
-                            Text('📞 ${patient.phone}'),
-                        ],
-                      ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => PatientDetailScreen(patient: patient),
+              // Search bar and header
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Patients (${patients.length})',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
-                        );
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pushNamed('/addPatient');
+                          },
+                          icon: const Icon(Icons.person_add, size: 20),
+                          label: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search patients by name, email or phone...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
                       },
                     ),
-                  )),
+                  ],
+                ),
+              ),
+              // Patient list
+              Expanded(
+                child: filteredPatients.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_off_rounded, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No patients found',
+                              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Try a different search term',
+                              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: filteredPatients.length,
+                        itemBuilder: (context, index) {
+                          final patient = filteredPatients[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                                child: Text(
+                                  patient.firstName[0].toUpperCase(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                patient.fullName,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (patient.phone != null)
+                                    Text('📞 ${patient.phone}'),
+                                  if (patient.dateOfBirth != null)
+                                    Text('🎂 ${patient.dateOfBirth!.day}/${patient.dateOfBirth!.month}/${patient.dateOfBirth!.year}'),
+                                ],
+                              ),
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => PatientDetailScreen(patient: patient),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ],
           );
         },
@@ -757,7 +1233,7 @@ class DoctorProfileView extends ConsumerWidget {
     final currentHospital = ref.watch(currentHospitalProvider);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
       children: [
         profileAsync.when(
           loading: () => const Card(

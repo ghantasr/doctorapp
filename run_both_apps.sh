@@ -1,31 +1,51 @@
 #!/bin/bash
 
-# Run Doctor and Patient apps simultaneously on different ports
+# Run Doctor and Patient apps simultaneously on two iPhone simulators
 
-echo "🏥 Starting Doctor App and Patient App..."
+echo "🏥 Starting Doctor App and Patient App on iPhones..."
 echo ""
 
-# Kill any existing Flutter processes on these ports
-lsof -ti:5001 | xargs kill -9 2>/dev/null
-lsof -ti:5002 | xargs kill -9 2>/dev/null
+# Get the two booted iPhone simulators
+IPHONE_1=$(xcrun simctl list devices | grep "iPhone.*Booted" | head -1 | grep -o '[0-9A-F]\{8\}-[0-9A-F]\{4\}-[0-9A-F]\{4\}-[0-9A-F]\{4\}-[0-9A-F]\{12\}')
+IPHONE_2=$(xcrun simctl list devices | grep "iPhone.*Booted" | tail -1 | grep -o '[0-9A-F]\{8\}-[0-9A-F]\{4\}-[0-9A-F]\{4\}-[0-9A-F]\{4\}-[0-9A-F]\{12\}')
 
-# Start Doctor App on port 5001
-echo "▶️  Starting Doctor App on http://localhost:5001"
-flutter run -d chrome --web-port=5001 --dart-define=FLAVOR=doctor lib/main_doctor.dart &
+# Check if we have two different simulators
+if [ -z "$IPHONE_1" ] || [ -z "$IPHONE_2" ]; then
+    echo "❌ Error: Need two booted iPhone simulators"
+    echo ""
+    echo "Please boot two iPhone simulators:"
+    echo "1. Open Xcode → Window → Devices and Simulators"
+    echo "2. Or run: open -a Simulator"
+    echo "3. Then File → New Simulator Window (to open second simulator)"
+    exit 1
+fi
+
+if [ "$IPHONE_1" == "$IPHONE_2" ]; then
+    echo "❌ Error: Only one iPhone simulator is booted"
+    echo "Please boot a second iPhone simulator"
+    exit 1
+fi
+
+echo "📱 Using iPhone simulators:"
+echo "   iPhone 1: $IPHONE_1"
+echo "   iPhone 2: $IPHONE_2"
+echo ""
+
+# Start Doctor App on first iPhone
+echo "▶️  Starting Doctor App on first iPhone..."
+flutter run -d $IPHONE_1 --dart-define=FLAVOR=doctor lib/main_doctor.dart &
 DOCTOR_PID=$!
 
 # Wait a moment
-sleep 2
+sleep 3
 
-# Start Patient App on port 5002
-echo "▶️  Starting Patient App on http://localhost:5002"
-flutter run -d chrome --web-port=5002 --dart-define=FLAVOR=patient lib/main_patient.dart &
+# Start Patient App on second iPhone
+echo "▶️  Starting Patient App on second iPhone..."
+flutter run -d $IPHONE_2 --dart-define=FLAVOR=patient lib/main_patient.dart &
 PATIENT_PID=$!
 
 echo ""
-echo "✅ Both apps are running:"
-echo "   Doctor App:  http://localhost:5001"
-echo "   Patient App: http://localhost:5002"
+echo "✅ Both apps are running on iPhones"
 echo ""
 echo "Press Ctrl+C to stop both apps"
 echo ""

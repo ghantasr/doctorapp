@@ -11,6 +11,7 @@ class PatientAssignment {
   final DateTime assignedAt;
   final String status; // active, completed, returned
   final String? notes;
+  final DateTime? followUpDate;
   final DoctorProfile? doctor; // Joined doctor info
 
   PatientAssignment({
@@ -22,6 +23,7 @@ class PatientAssignment {
     required this.assignedAt,
     required this.status,
     this.notes,
+    this.followUpDate,
     this.doctor,
   });
 
@@ -35,6 +37,9 @@ class PatientAssignment {
       assignedAt: DateTime.parse(json['assigned_at']),
       status: json['status'],
       notes: json['notes'],
+      followUpDate: json['follow_up_date'] != null 
+          ? DateTime.parse(json['follow_up_date'])
+          : null,
       doctor: json['doctors'] != null 
           ? DoctorProfile.fromJson(json['doctors'])
           : null,
@@ -86,7 +91,7 @@ class PatientAssignmentService {
       final response = await _client
           .from('patient_assignments')
           .select('''
-            id, patient_id, doctor_id, tenant_id, assigned_by, assigned_at, status, notes,
+            id, patient_id, doctor_id, tenant_id, assigned_by, assigned_at, status, notes, follow_up_date,
             doctors:doctor_id (
               id, first_name, last_name, specialty, phone
             )
@@ -145,6 +150,68 @@ class PatientAssignmentService {
           .eq('id', assignmentId);
     } catch (e) {
       throw Exception('Failed to return patient: $e');
+    }
+  }
+
+  /// Update follow-up date for a patient assignment
+  Future<void> updateFollowUpDate({
+    required String patientId,
+    required String doctorId,
+    required DateTime? followUpDate,
+  }) async {
+    try {
+      await _client
+          .from('patient_assignments')
+          .update({
+            'follow_up_date': followUpDate?.toIso8601String(),
+          })
+          .eq('patient_id', patientId)
+          .eq('doctor_id', doctorId)
+          .eq('status', 'active');
+    } catch (e) {
+      throw Exception('Failed to update follow-up date: $e');
+    }
+  }
+
+  /// Mark patient as visited for current follow-up (updates last_visit_date)
+  Future<void> markAsVisitedForFollowUp({
+    required String patientId,
+    required String doctorId,
+  }) async {
+    try {
+      await _client
+          .from('patient_assignments')
+          .update({
+            'last_visit_date': DateTime.now().toIso8601String(),
+          })
+          .eq('patient_id', patientId)
+          .eq('doctor_id', doctorId)
+          .eq('status', 'active');
+    } catch (e) {
+      throw Exception('Failed to mark patient as visited: $e');
+    }
+  }
+
+  /// Get follow-up date for a patient
+  Future<DateTime?> getFollowUpDate({
+    required String patientId,
+    required String doctorId,
+  }) async {
+    try {
+      final response = await _client
+          .from('patient_assignments')
+          .select('follow_up_date')
+          .eq('patient_id', patientId)
+          .eq('doctor_id', doctorId)
+          .eq('status', 'active')
+          .maybeSingle();
+
+      if (response == null || response['follow_up_date'] == null) {
+        return null;
+      }
+      return DateTime.parse(response['follow_up_date']);
+    } catch (e) {
+      throw Exception('Failed to get follow-up date: $e');
     }
   }
 

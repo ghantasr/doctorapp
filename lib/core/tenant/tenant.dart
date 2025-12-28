@@ -9,6 +9,7 @@ class Tenant with _$Tenant {
     required String id,
     required String name,
     String? logo,
+    String? address,
     TenantBranding? branding,
     DateTime? createdAt,
   }) = _Tenant;
@@ -29,6 +30,7 @@ class Tenant with _$Tenant {
       id: json['id'] as String,
       name: json['name'] as String,
       logo: json['logo'] as String?,
+      address: json['address'] as String?,
       branding: branding,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)

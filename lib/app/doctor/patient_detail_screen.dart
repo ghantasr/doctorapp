@@ -7,6 +7,8 @@ import '../../core/auth/auth_service.dart';
 import '../../shared/widgets/hospital_selector.dart';
 import 'medical_records_screen.dart';
 import 'team_management_view.dart';
+import 'create_bill_screen.dart';
+import 'create_prescription_screen.dart';
 
 class PatientDetailScreen extends ConsumerWidget {
   final PatientInfo patient;
@@ -88,6 +90,56 @@ class PatientDetailScreen extends ConsumerWidget {
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text('Notes: ${assignment.notes}'),
                               ),
+                            
+                            // Follow-up Date Section
+                            const SizedBox(height: 12),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.event_repeat, size: 20, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Follow-Up Date',
+                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        assignment.followUpDate != null
+                                            ? '${assignment.followUpDate!.day}/${assignment.followUpDate!.month}/${assignment.followUpDate!.year}'
+                                            : 'Not set',
+                                        style: TextStyle(
+                                          color: assignment.followUpDate != null 
+                                              ? Colors.blue 
+                                              : Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!isAdmin)
+                                  IconButton(
+                                    icon: Icon(
+                                      assignment.followUpDate != null 
+                                          ? Icons.edit_calendar 
+                                          : Icons.add_circle_outline,
+                                      color: Colors.blue,
+                                    ),
+                                    onPressed: () => _showFollowUpDialog(
+                                      context,
+                                      ref,
+                                      assignment.followUpDate,
+                                    ),
+                                    tooltip: assignment.followUpDate != null 
+                                        ? 'Edit follow-up date' 
+                                        : 'Set follow-up date',
+                                  ),
+                              ],
+                            ),
                             
                             // Actions for doctors
                             if (!isAdmin) ...[
@@ -185,6 +237,86 @@ class PatientDetailScreen extends ConsumerWidget {
                     trailing: Icon(Icons.arrow_forward_ios, size: 16),
                   ),
                 ),
+              ),
+              
+              // Billing and Prescription Section
+              const SizedBox(height: 16),
+              const Text(
+                'Actions',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Card(
+                      child: InkWell(
+                        onTap: () async {
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CreateBillScreen(patient: patient),
+                            ),
+                          );
+                          if (result != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Bill generated successfully')),
+                            );
+                          }
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              Icon(Icons.receipt_long, size: 32, color: Colors.blue),
+                              SizedBox(height: 8),
+                              Text(
+                                'Generate Bill',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Card(
+                      child: InkWell(
+                        onTap: () async {
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CreatePrescriptionScreen(patient: patient),
+                            ),
+                          );
+                          if (result != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Prescription created successfully')),
+                            );
+                          }
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              Icon(Icons.medication, size: 32, color: Colors.green),
+                              SizedBox(height: 8),
+                              Text(
+                                'Create Prescription',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -314,6 +446,122 @@ class PatientDetailScreen extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to complete: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showFollowUpDialog(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime? currentFollowUpDate,
+  ) async {
+    DateTime selectedDate = currentFollowUpDate ?? DateTime.now().add(const Duration(days: 7));
+
+    final result = await showDialog<DateTime?>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Set Follow-Up Date'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Select when the patient should return for follow-up:'),
+                  const SizedBox(height: 16),
+                  Card(
+                    color: Colors.blue.shade50,
+                    child: ListTile(
+                      leading: const Icon(Icons.calendar_today, color: Colors.blue),
+                      title: const Text('Follow-up Date'),
+                      subtitle: Text(
+                        '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      trailing: const Icon(Icons.edit, color: Colors.blue),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            selectedDate = picked;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Patient will receive a reminder 2 days before this date.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+              actions: [
+                if (currentFollowUpDate != null)
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, DateTime(1970)), // Special value for clear
+                    child: const Text('Clear', style: TextStyle(color: Colors.red)),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, selectedDate),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null && context.mounted) {
+      try {
+        final service = ref.read(patientAssignmentServiceProvider);
+        final doctorProfile = await ref.read(doctorProfileProvider.future);
+        
+        if (doctorProfile == null) {
+          throw Exception('Doctor profile not found');
+        }
+
+        // Check if we should clear the date
+        final dateToSet = result.year == 1970 ? null : result;
+        
+        await service.updateFollowUpDate(
+          patientId: patient.id,
+          doctorId: doctorProfile.id,
+          followUpDate: dateToSet,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                dateToSet == null 
+                    ? 'Follow-up date cleared'
+                    : 'Follow-up date set for ${dateToSet.day}/${dateToSet.month}/${dateToSet.year}',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          ref.invalidate(patientActiveAssignmentProvider(patient.id));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update follow-up date: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
