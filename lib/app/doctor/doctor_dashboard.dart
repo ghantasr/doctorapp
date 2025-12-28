@@ -17,6 +17,7 @@ import 'my_prescriptions_view.dart';
 import 'analytics_view.dart';
 import 'doctor_appointments_enhanced_view.dart';
 import 'follow_up_patients_view.dart';
+import 'admin_follow_up_due_view.dart';
 
 class DoctorDashboard extends ConsumerStatefulWidget {
   const DoctorDashboard({super.key});
@@ -62,6 +63,12 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
   void _navigateToFollowUps() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const FollowUpPatientsView()),
+    );
+  }
+
+  void _navigateToAdminFollowUpDue() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const AdminFollowUpDueView()),
     );
   }
 
@@ -288,6 +295,17 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
                   onTap: () {
                     Navigator.of(context).pop();
                     _navigateToFollowUps();
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.notification_important_rounded,
+                  title: 'Follow-Ups Due Soon',
+                  subtitle: 'Patients needing reminders (Admin)',
+                  iconColor: Colors.orange,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _navigateToAdminFollowUpDue();
                   },
                 ),
                 _buildDrawerItem(
