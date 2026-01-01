@@ -41,48 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: '1:YOUR_APP_ID:web:YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'your-project-id',
-    authDomain: 'your-project-id.firebaseapp.com',
-    storageBucket: 'your-project-id.appspot.com',
-    measurementId: 'YOUR_MEASUREMENT_ID',
+    apiKey: 'AIzaSyC9ZYt5_17HjQeerKzbqg4L29fHggMA1WI',
+    appId: '1:410142551302:web:ee17a467f63ac6247e8287',
+    messagingSenderId: '410142551302',
+    projectId: 'doctorapp-7f7e1',
+    authDomain: 'doctorapp-7f7e1.firebaseapp.com',
+    storageBucket: 'doctorapp-7f7e1.firebasestorage.app',
+    measurementId: 'G-GX035C7528',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: '1:YOUR_APP_ID:android:YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyDJCfOVUBbK370U7TJlyxmdgca27eRMHic',
+    appId: '1:410142551302:android:150d6e7038577f347e8287',
+    messagingSenderId: '410142551302',
+    projectId: 'doctorapp-7f7e1',
+    storageBucket: 'doctorapp-7f7e1.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: '1:YOUR_APP_ID:ios:YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
-    iosBundleId: 'com.healthcare.doctor',
+    apiKey: 'AIzaSyA0LA4jCcEBBdgs7fT3jbkoCC19MDMXl0M',
+    appId: '1:410142551302:ios:e80c67a246cef02b7e8287',
+    messagingSenderId: '410142551302',
+    projectId: 'doctorapp-7f7e1',
+    storageBucket: 'doctorapp-7f7e1.firebasestorage.app',
+    iosBundleId: 'com.sagha.doctor',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR_MACOS_API_KEY',
-    appId: '1:YOUR_APP_ID:macos:YOUR_MACOS_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
-    iosBundleId: 'com.healthcare.doctor',
+    apiKey: 'AIzaSyA0LA4jCcEBBdgs7fT3jbkoCC19MDMXl0M',
+    appId: '1:410142551302:ios:424626404307cbc57e8287',
+    messagingSenderId: '410142551302',
+    projectId: 'doctorapp-7f7e1',
+    storageBucket: 'doctorapp-7f7e1.firebasestorage.app',
+    iosBundleId: 'com.healthcare.doctorapp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'YOUR_WINDOWS_API_KEY',
-    appId: '1:YOUR_APP_ID:windows:YOUR_WINDOWS_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'your-project-id',
-    authDomain: 'your-project-id.firebaseapp.com',
-    storageBucket: 'your-project-id.appspot.com',
-    measurementId: 'YOUR_MEASUREMENT_ID',
+    apiKey: 'AIzaSyC9ZYt5_17HjQeerKzbqg4L29fHggMA1WI',
+    appId: '1:410142551302:web:d7dd548fa91904547e8287',
+    messagingSenderId: '410142551302',
+    projectId: 'doctorapp-7f7e1',
+    authDomain: 'doctorapp-7f7e1.firebaseapp.com',
+    storageBucket: 'doctorapp-7f7e1.firebasestorage.app',
+    measurementId: 'G-Y5GKYKN19J',
   );
+
 }

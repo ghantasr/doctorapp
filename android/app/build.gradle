@@ -1,5 +1,8 @@
 plugins {
     id "com.android.application"
+    // START: FlutterFire Configuration
+    id 'com.google.gms.google-services'
+    // END: FlutterFire Configuration
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -23,7 +26,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.healthcare.doctorapp"
+    namespace "com.sagha.doctorapp"
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -52,12 +55,12 @@ android {
     productFlavors {
         doctor {
             dimension = "app"
-            applicationId = "com.healthcare.doctor"
+            applicationId = "com.sagha.doctor"
             resValue "string", "app_name", "Doctor App"
         }
         patient {
             dimension = "app"
-            applicationId = "com.healthcare.patient"
+            applicationId = "com.sagha.patient"
             resValue "string", "app_name", "Patient App"
         }
     }
