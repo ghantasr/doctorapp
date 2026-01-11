@@ -11,6 +11,13 @@ All applications share:
 - Same database with tenant isolation
 - Same authentication system
 
+## 📚 Documentation
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete system architecture with detailed diagrams and flow charts
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference guide for developers
+- **[BUILD_COMMANDS.md](BUILD_COMMANDS.md)** - Build and deployment commands
+- **[TESTING.md](TESTING.md)** - Testing procedures and guidelines
+
 ## Features
 
 ### Multi-Tenancy
