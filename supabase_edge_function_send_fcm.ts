@@ -112,6 +112,8 @@ async function getAccessToken(serviceAccount: any): Promise<{ access_token: stri
   }
 
   // Encode header and payload
+  // NOTE: Using btoa() for simplicity. In production with Unicode,
+  // use proper base64url encoding library
   const encodedHeader = btoa(JSON.stringify(header))
   const encodedPayload = btoa(JSON.stringify(payload))
   const unsignedToken = `${encodedHeader}.${encodedPayload}`
@@ -164,6 +166,8 @@ async function getAccessToken(serviceAccount: any): Promise<{ access_token: stri
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
+  // NOTE: This is a simplified implementation for demonstration
+  // In production, use a proper library that handles base64url encoding correctly
   const pemContents = pem
     .replace('-----BEGIN PRIVATE KEY-----', '')
     .replace('-----END PRIVATE KEY-----', '')

@@ -134,12 +134,12 @@ serve(async (req) => {
       try {
         results.processed++
 
-        // Get user's FCM token
+        // Get all active FCM tokens for the user (multi-device support)
         const { data: tokenData, error: tokenError } = await supabaseClient
           .from('user_fcm_tokens')
           .select('fcm_token')
           .eq('user_id', notification.user_id)
-          .maybeSingle()
+          .eq('is_active', true)
 
         if (tokenError) {
           console.error(`Error fetching token for user ${notification.user_id}:`, tokenError)
@@ -157,7 +157,7 @@ serve(async (req) => {
           continue
         }
 
-        if (!tokenData || !tokenData.fcm_token) {
+        if (!tokenData || tokenData.length === 0) {
           console.log(`No FCM token found for user ${notification.user_id}`)
           results.no_token++
           
@@ -184,15 +184,36 @@ serve(async (req) => {
           }
         }
 
-        // Send FCM notification
-        const sendResult = await sendFCMNotification(
-          tokenData.fcm_token,
-          notification.title,
-          notification.body,
-          fcmData
-        )
+        // Send to all active tokens for this user (multi-device support)
+        let sentToAtLeastOneDevice = false
+        let lastError = null
 
-        if (sendResult.success) {
+        for (const token of tokenData) {
+          const sendResult = await sendFCMNotification(
+            token.fcm_token,
+            notification.title,
+            notification.body,
+            fcmData
+          )
+
+          if (sendResult.success) {
+            sentToAtLeastOneDevice = true
+          } else {
+            lastError = sendResult.error
+            
+            // If token is invalid, deactivate this specific token
+            if (sendResult.error === 'invalid_token') {
+              console.log(`Deactivating invalid token for user ${notification.user_id}`)
+              await supabaseClient
+                .from('user_fcm_tokens')
+                .update({ is_active: false })
+                .eq('user_id', notification.user_id)
+                .eq('fcm_token', token.fcm_token)
+            }
+          }
+        }
+
+        if (sentToAtLeastOneDevice) {
           results.sent++
           
           // Update notification status to sent
@@ -208,27 +229,17 @@ serve(async (req) => {
             notification_id: notification.id,
             user_id: notification.user_id,
             status: 'sent',
-            message_id: sendResult.messageId
+            device_count: tokenData.length
           })
         } else {
           results.failed++
-          
-          // If token is invalid, deactivate it
-          if (sendResult.error === 'invalid_token') {
-            console.log(`Deactivating invalid token for user ${notification.user_id}`)
-            await supabaseClient
-              .from('user_fcm_tokens')
-              .update({ is_active: false })
-              .eq('user_id', notification.user_id)
-              .eq('fcm_token', tokenData.fcm_token)
-          }
           
           // Update notification status to failed with error message
           await supabaseClient
             .from('notification_logs')
             .update({ 
               status: 'failed',
-              error_message: sendResult.error || 'Unknown error'
+              error_message: lastError || 'Failed to send to all devices'
             })
             .eq('id', notification.id)
           
@@ -236,7 +247,7 @@ serve(async (req) => {
             notification_id: notification.id,
             user_id: notification.user_id,
             status: 'failed',
-            error: sendResult.error
+            error: lastError
           })
         }
 

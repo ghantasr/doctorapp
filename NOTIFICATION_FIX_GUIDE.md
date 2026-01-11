@@ -37,9 +37,10 @@ I've created the following files to fix all issues:
    - Updates all notification functions to use 'pending' status
    - Creates cleanup function for old tokens
 
-### 2. **supabase_edge_function_send_pending_notifications.ts**
+### 2. **supabase_edge_function_send_pending_notifications.ts** ⭐ RECOMMENDED
    - New Edge Function that processes all pending notifications
    - Sends actual FCM push notifications
+   - Supports multi-device: sends to ALL user devices
    - Updates notification status (sent/failed)
    - Deactivates invalid tokens automatically
    - Uses simple FCM HTTP API (no complex JWT signing needed)

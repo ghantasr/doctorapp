@@ -31,7 +31,7 @@ BEGIN
       ADD CONSTRAINT user_fcm_tokens_pkey PRIMARY KEY (id);
     
     -- Create unique index on user_id + fcm_token to prevent duplicate tokens for same user
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_fcm_token_unique 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_fcm_tokens_unique 
       ON public.user_fcm_tokens(user_id, fcm_token);
     
     -- Create index on user_id for faster lookups
