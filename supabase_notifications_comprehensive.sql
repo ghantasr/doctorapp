@@ -134,7 +134,7 @@ BEGIN
     d.last_name as doctor_last_name,
     pa.follow_up_date,
     pa.tenant_id,
-    p.id as patient_user_id
+    p.user_id as patient_user_id
   FROM public.patient_assignments pa
   JOIN public.patients p ON pa.patient_id = p.id
   JOIN public.doctors d ON pa.doctor_id = d.id
@@ -192,10 +192,10 @@ DECLARE
   v_result JSONB;
 BEGIN
   -- Get patient's user ID and FCM token
-  SELECT id INTO v_patient_user_id FROM public.patients WHERE id = p_patient_id;
+  SELECT user_id INTO v_patient_user_id FROM public.patients WHERE id = p_patient_id;
   
   IF v_patient_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Patient not found');
+    RETURN jsonb_build_object('success', false, 'error', 'Patient has no linked user account');
   END IF;
   
   -- Get FCM token
@@ -263,10 +263,10 @@ DECLARE
   v_result JSONB;
 BEGIN
   -- Get patient's user ID and FCM token
-  SELECT id INTO v_patient_user_id FROM public.patients WHERE id = p_patient_id;
+  SELECT user_id INTO v_patient_user_id FROM public.patients WHERE id = p_patient_id;
   
   IF v_patient_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Patient not found');
+    RETURN jsonb_build_object('success', false, 'error', 'Patient has no linked user account');
   END IF;
   
   -- Get FCM token
@@ -368,6 +368,139 @@ ORDER BY pa.follow_up_date ASC;
 
 -- Grant access to the view
 GRANT SELECT ON admin_follow_up_due_soon TO authenticated;
+
+-- 11. Normalize notification log user references before insert
+CREATE OR REPLACE FUNCTION public.normalize_notification_log_user()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_mapped_user_id UUID;
+BEGIN
+  IF NEW.user_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- If the provided user_id already exists in auth.users we keep it
+  PERFORM 1 FROM auth.users WHERE id = NEW.user_id;
+  IF FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  -- Map doctor record IDs to their linked auth user IDs
+  SELECT user_id INTO v_mapped_user_id
+  FROM public.doctors
+  WHERE id = NEW.user_id
+  LIMIT 1;
+
+  IF v_mapped_user_id IS NOT NULL THEN
+    NEW.user_id := v_mapped_user_id;
+    RETURN NEW;
+  END IF;
+
+  -- Map patient record IDs to their linked auth user IDs
+  SELECT user_id INTO v_mapped_user_id
+  FROM public.patients
+  WHERE id = NEW.user_id
+  LIMIT 1;
+
+  IF v_mapped_user_id IS NOT NULL THEN
+    NEW.user_id := v_mapped_user_id;
+    RETURN NEW;
+  END IF;
+
+  -- Map admin/user records if present in supporting tables
+  IF to_regclass('public.users') IS NOT NULL THEN
+    SELECT user_id INTO v_mapped_user_id
+    FROM public.users
+    WHERE id = NEW.user_id
+    LIMIT 1;
+
+    IF v_mapped_user_id IS NOT NULL THEN
+      NEW.user_id := v_mapped_user_id;
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS normalize_notification_log_user_trigger ON public.notification_logs;
+CREATE TRIGGER normalize_notification_log_user_trigger
+  BEFORE INSERT ON public.notification_logs
+  FOR EACH ROW
+  EXECUTE FUNCTION public.normalize_notification_log_user();
+
+-- 12. Automatically log notifications when a patient is newly assigned to a doctor
+CREATE OR REPLACE FUNCTION public.handle_new_patient_assignment()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_doctor_user_id UUID;
+  v_patient_name TEXT;
+  v_fcm_token TEXT;
+  v_status TEXT;
+BEGIN
+  -- Only act on active assignments to avoid logging historical imports
+  IF NEW.status IS DISTINCT FROM 'active' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT user_id INTO v_doctor_user_id
+  FROM public.doctors
+  WHERE id = NEW.doctor_id
+  LIMIT 1;
+
+  IF v_doctor_user_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT first_name || ' ' || last_name INTO v_patient_name
+  FROM public.patients
+  WHERE id = NEW.patient_id
+  LIMIT 1;
+
+  SELECT fcm_token INTO v_fcm_token
+  FROM public.user_fcm_tokens
+  WHERE user_id = v_doctor_user_id
+  LIMIT 1;
+
+  v_status := CASE WHEN v_fcm_token IS NULL THEN 'no_token' ELSE 'pending' END;
+
+  INSERT INTO public.notification_logs (
+    user_id,
+    notification_type,
+    title,
+    body,
+    data,
+    status
+  ) VALUES (
+    v_doctor_user_id,
+    'new_assignment',
+    'New Patient Assignment',
+    COALESCE('You have been assigned to ' || v_patient_name, 'You have a new patient assignment'),
+    jsonb_build_object(
+      'type', 'new_assignment',
+      'patient_id', NEW.patient_id,
+      'assignment_id', NEW.id,
+      'tenant_id', NEW.tenant_id
+    ),
+    v_status
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS handle_new_patient_assignment_trigger ON public.patient_assignments;
+CREATE TRIGGER handle_new_patient_assignment_trigger
+  AFTER INSERT ON public.patient_assignments
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_patient_assignment();
 
 COMMENT ON TABLE public.user_fcm_tokens IS 'Stores Firebase Cloud Messaging tokens for push notifications';
 COMMENT ON TABLE public.notification_logs IS 'Logs all sent notifications for auditing and tracking';

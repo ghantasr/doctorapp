@@ -39,6 +39,39 @@ class NotificationLog {
 class NotificationService {
   final _client = SupabaseConfig.client;
 
+  Future<String> _resolveUserId(String userId) async {
+    try {
+      final currentUserId = _client.auth.currentUser?.id;
+      if (userId == currentUserId) {
+        return userId;
+      }
+
+      final doctorRecord = await _client
+          .from('doctors')
+          .select('user_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (doctorRecord != null && doctorRecord['user_id'] != null) {
+        return doctorRecord['user_id'] as String;
+      }
+
+      final patientRecord = await _client
+          .from('patients')
+          .select('user_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (patientRecord != null && patientRecord['user_id'] != null) {
+        return patientRecord['user_id'] as String;
+      }
+    } catch (error) {
+      print('Warning: failed to resolve auth user id for $userId: $error');
+    }
+
+    return userId;
+  }
+
   /// Log a sent notification
   Future<void> logNotification({
     required String userId,
@@ -48,8 +81,9 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
+      final normalizedUserId = await _resolveUserId(userId);
       await _client.from('notification_logs').insert({
-        'user_id': userId,
+        'user_id': normalizedUserId,
         'notification_type': notificationType,
         'title': title,
         'body': body,
@@ -90,11 +124,12 @@ class NotificationService {
     required DateTime followUpDate,
   }) async {
     try {
+      final targetUserId = await _resolveUserId(doctorId);
       // Get doctor's FCM token
       final tokenData = await _client
           .from('user_fcm_tokens')
           .select('fcm_token')
-          .eq('user_id', doctorId)
+          .eq('user_id', targetUserId)
           .maybeSingle();
 
       if (tokenData == null || tokenData['fcm_token'] == null) {
@@ -105,7 +140,7 @@ class NotificationService {
       // In production, you'd call your backend/Edge Function to send the actual push notification
       // For now, we'll just log it
       await logNotification(
-        userId: doctorId,
+        userId: targetUserId,
         notificationType: 'follow_up_reminder',
         title: 'Follow-Up Reminder',
         body: '$patientName has a follow-up scheduled for today',
@@ -128,10 +163,11 @@ class NotificationService {
     required DateTime appointmentTime,
   }) async {
     try {
+      final targetUserId = await _resolveUserId(userId);
       final tokenData = await _client
           .from('user_fcm_tokens')
           .select('fcm_token')
-          .eq('user_id', userId)
+          .eq('user_id', targetUserId)
           .maybeSingle();
 
       if (tokenData == null || tokenData['fcm_token'] == null) {
@@ -140,7 +176,7 @@ class NotificationService {
       }
 
       await logNotification(
-        userId: userId,
+        userId: targetUserId,
         notificationType: 'appointment_reminder',
         title: 'Upcoming Appointment',
         body: 'Appointment with $patientName at ${_formatTime(appointmentTime)}',
@@ -163,10 +199,11 @@ class NotificationService {
     required String patientId,
   }) async {
     try {
+      final targetUserId = await _resolveUserId(doctorId);
       final tokenData = await _client
           .from('user_fcm_tokens')
           .select('fcm_token')
-          .eq('user_id', doctorId)
+          .eq('user_id', targetUserId)
           .maybeSingle();
 
       if (tokenData == null || tokenData['fcm_token'] == null) {
@@ -175,7 +212,7 @@ class NotificationService {
       }
 
       await logNotification(
-        userId: doctorId,
+        userId: targetUserId,
         notificationType: 'new_assignment',
         title: 'New Patient Assignment',
         body: '$patientName has been assigned to you',

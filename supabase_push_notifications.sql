@@ -59,7 +59,8 @@ BEGIN
     uft.fcm_token
   FROM patient_assignments pa
   JOIN patients p ON pa.patient_id = p.id
-  JOIN user_fcm_tokens uft ON pa.doctor_id = uft.user_id
+  JOIN doctors d ON pa.doctor_id = d.id
+  JOIN user_fcm_tokens uft ON d.user_id = uft.user_id
   WHERE 
     pa.status = 'active'
     AND pa.follow_up_date IS NOT NULL
@@ -85,8 +86,8 @@ BEGIN
   FROM appointments a
   JOIN patients p ON a.patient_id = p.id
   LEFT JOIN doctors d ON a.doctor_id = d.id
-  LEFT JOIN user_fcm_tokens uft_patient ON p.id = uft_patient.user_id
-  LEFT JOIN user_fcm_tokens uft_doctor ON d.id = uft_doctor.user_id
+  LEFT JOIN user_fcm_tokens uft_patient ON p.user_id = uft_patient.user_id
+  LEFT JOIN user_fcm_tokens uft_doctor ON d.user_id = uft_doctor.user_id
   WHERE 
     a.status = 'scheduled'
     AND a.appointment_date BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
