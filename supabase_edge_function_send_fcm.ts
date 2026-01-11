@@ -1,5 +1,8 @@
 // Supabase Edge Function: send-fcm-notification
 // This function sends actual FCM push notifications using Firebase Admin SDK
+// ⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION ONLY
+// ⚠️ Use supabase_edge_function_send_fcm_simple.ts or supabase_edge_function_send_pending_notifications.ts instead
+// ⚠️ This implementation requires proper JWT signing which is complex in Edge Functions
 // Deploy with: supabase functions deploy send-fcm-notification
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -142,6 +145,9 @@ async function getAccessToken(serviceAccount: any): Promise<{ access_token: stri
   )
 
   // Encode signature
+  // NOTE: This is a simplified implementation for demonstration purposes only
+  // In production, use a proper JWT library with correct base64url encoding
+  // The current implementation may fail with Firebase due to encoding issues
   const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
   const jwt = `${unsignedToken}.${encodedSignature}`
 

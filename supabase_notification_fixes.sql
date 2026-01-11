@@ -112,12 +112,13 @@ DECLARE
   v_token_id UUID;
 BEGIN
   -- If device_identifier is provided, deactivate old tokens for this device
+  -- Use <> instead of != for SQL standard compliance
   IF p_device_identifier IS NOT NULL THEN
     UPDATE public.user_fcm_tokens
     SET is_active = false
     WHERE user_id = p_user_id
       AND device_identifier = p_device_identifier
-      AND fcm_token != p_fcm_token;
+      AND fcm_token <> p_fcm_token;
   END IF;
 
   -- Insert or update the token
