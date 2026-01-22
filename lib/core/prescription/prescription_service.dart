@@ -210,6 +210,7 @@ class PrescriptionService {
     DateTime? validUntil,
   }) async {
     try {
+      print('📝 Creating prescription for patient: $patientId');
       final prescriptionNumber = await generatePrescriptionNumber(tenantId);
       
       final response = await _client
@@ -229,7 +230,12 @@ class PrescriptionService {
           .select()
           .single();
 
-      return Prescription.fromJson(response);
+      final prescription = Prescription.fromJson(response);
+      
+      print('✅ Prescription created: ${prescription.prescriptionNumber}');
+      print('📬 Patient will be notified when prescription is ready for pickup');
+      
+      return prescription;
     } catch (e) {
       throw Exception('Failed to create prescription: $e');
     }

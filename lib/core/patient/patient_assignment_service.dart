@@ -80,6 +80,10 @@ class PatientAssignmentService {
         'status': 'active',
         'notes': notes,
       });
+      
+      // Send notification to doctor about new assignment
+      // Note: This happens automatically via edge function in production
+      print('✅ Patient assigned successfully - notification will be sent via edge function');
     } catch (e) {
       throw Exception('Failed to assign patient: $e');
     }
@@ -168,6 +172,10 @@ class PatientAssignmentService {
           .eq('patient_id', patientId)
           .eq('doctor_id', doctorId)
           .eq('status', 'active');
+      
+      if (followUpDate != null) {
+        print('✅ Follow-up date set for $followUpDate - reminder will be sent 2 days before');
+      }
     } catch (e) {
       throw Exception('Failed to update follow-up date: $e');
     }

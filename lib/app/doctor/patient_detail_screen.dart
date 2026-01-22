@@ -4,6 +4,7 @@ import '../../core/patient/patient_service.dart';
 import '../../core/patient/patient_assignment_service.dart';
 import '../../core/doctor/doctor_service.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/notifications/notification_helper.dart';
 import '../../shared/widgets/hospital_selector.dart';
 import 'medical_records_screen.dart';
 import 'team_management_view.dart';
@@ -351,6 +352,12 @@ class PatientDetailScreen extends ConsumerWidget {
           assignedBy: authService.currentUser!.id,
         );
         
+        // Send notification to the assigned doctor
+        await NotificationHelper.sendNewAssignmentNotification(
+          doctorId: result,
+          patientName: patient.fullName,
+        );
+        
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Patient assigned successfully')),
@@ -541,6 +548,15 @@ class PatientDetailScreen extends ConsumerWidget {
           doctorId: doctorProfile.id,
           followUpDate: dateToSet,
         );
+
+        // Send notification if follow-up date is set
+        if (dateToSet != null) {
+          await NotificationHelper.sendFollowUpReminder(
+            doctorId: doctorProfile.id,
+            patientName: patient.fullName,
+            followUpDate: '${dateToSet.day}/${dateToSet.month}/${dateToSet.year}',
+          );
+        }
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

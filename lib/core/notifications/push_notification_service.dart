@@ -55,13 +55,29 @@ class PushNotificationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
+    // Create Android notification channel
+    const androidChannel = AndroidNotificationChannel(
+      'default_channel',
+      'Default Notifications',
+      description: 'Default notification channel for the app',
+      importance: Importance.high,
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidChannel);
+
     // Get FCM token
     _fcmToken = await _messaging.getToken();
-    print('FCM Token: $_fcmToken');
+    print('🔑 FCM Token Generated: $_fcmToken');
+    
+    if (_fcmToken != null) {
+      print('📋 User ID: ${SupabaseConfig.client.auth.currentUser?.id}');
+    }
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen((newToken) {
       _fcmToken = newToken;
+      print('🔄 FCM Token Refreshed: $newToken');
       _saveFCMTokenToDatabase(newToken);
     });
 
@@ -90,18 +106,25 @@ class PushNotificationService {
   Future<void> _saveFCMTokenToDatabase(String token) async {
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) {
+        print('⚠️ Cannot save FCM token - user not authenticated');
+        return;
+      }
 
-      // Check if user_fcm_tokens table exists, if not we'll create it
-      await SupabaseConfig.client.from('user_fcm_tokens').upsert({
+      print('💾 Saving FCM token to database for user: $userId');
+      print('📱 FCM Token: ${token.substring(0, 30)}...');
+
+      // Save to fcm_tokens table
+      await SupabaseConfig.client.from('fcm_tokens').upsert({
         'user_id': userId,
-        'fcm_token': token,
+        'token': token,
+        'device_type': 'android',
         'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
+      });
 
-      print('FCM token saved to database');
+      print('✅ FCM token saved to database successfully!');
     } catch (e) {
-      print('Error saving FCM token: $e');
+      print('❌ Error saving FCM token: $e');
     }
   }
 

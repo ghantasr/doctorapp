@@ -15,16 +15,42 @@ class TenantService {
 
   Future<List<Tenant>> fetchUserTenants(String userId) async {
     try {
-      final response = await _client
+      print('🔍 Fetching tenants for user: $userId');
+      
+      // First, get the tenant IDs from user_tenant_roles
+      final rolesResponse = await _client
           .from('user_tenant_roles')
-          .select('tenant_id, tenants(id, name, logo, branding, created_at)')
+          .select('tenant_id')
           .eq('user_id', userId);
 
-      return (response as List).map((item) {
-        final tenantData = item['tenants'];
-        return Tenant.fromJson(tenantData);
-      }).toList();
+      print('📋 Roles response: $rolesResponse');
+
+      if (rolesResponse.isEmpty) {
+        print('⚠️ No roles found for user');
+        return [];
+      }
+
+      // Extract tenant IDs
+      final tenantIds = (rolesResponse as List)
+          .map((role) => role['tenant_id'] as String)
+          .toList();
+
+      print('🏥 Tenant IDs: $tenantIds');
+
+      // Then, fetch the actual tenant data separately
+      final tenantsResponse = await _client
+          .from('tenants')
+          .select('id, name, logo, branding, created_at')
+          .inFilter('id', tenantIds);
+
+      print('🏢 Tenants response: $tenantsResponse');
+
+      return (tenantsResponse as List)
+          .map((tenantData) => Tenant.fromJson(tenantData))
+          .toList();
     } catch (e) {
+      print('❌ Error fetching tenants: $e');
+      print('❌ Error type: ${e.runtimeType}');
       throw TenantException('Failed to fetch user tenants: $e');
     }
   }

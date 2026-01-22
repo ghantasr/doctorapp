@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/notifications/notification_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/prescription/prescription_service.dart';
 import '../../core/patient/patient_service.dart';
@@ -82,6 +83,12 @@ class _CreatePrescriptionScreenState extends ConsumerState<CreatePrescriptionScr
             ? null 
             : _instructionsController.text.trim(),
         validUntil: _validUntil,
+      );
+
+      // Send notification to patient about prescription
+      await NotificationHelper.sendPrescriptionReady(
+        patientId: widget.patient.id,
+        prescriptionId: prescription.id,
       );
 
       // Create medication reminders if enabled

@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '410142551302',
     projectId: 'doctorapp-7f7e1',
     storageBucket: 'doctorapp-7f7e1.firebasestorage.app',
-    iosBundleId: 'com.healthcare.doctorapp',
+    iosBundleId: 'com.sagha.doctorapp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/tenant/tenant.dart';
 import '../../core/tenant/tenant_service.dart';
+import '../../shared/utils/router.dart';
+import '../../app/app_flavor.dart';
 
 class TenantSelectionScreen extends ConsumerStatefulWidget {
   const TenantSelectionScreen({super.key});
@@ -39,6 +41,8 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
       final tenantService = ref.read(tenantServiceProvider);
       final tenants = await tenantService.fetchUserTenants(userId);
 
+      print('✅ Successfully fetched ${tenants.length} tenants');
+
       setState(() {
         _tenants = tenants;
         _isLoading = false;
@@ -48,6 +52,7 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
         _selectTenant(tenants.first);
       }
     } catch (e) {
+      print('❌ Error in tenant selection screen: $e');
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -97,25 +102,98 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
                 )
               : _tenants.isEmpty
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.business_outlined,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'No organizations found',
-                            style: TextStyle(fontSize: 18),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Please contact your administrator',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.business_outlined,
+                              size: 80,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'No organizations found',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Get started by creating your clinic or joining an existing one',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 32),
+                            
+                            // Show different options based on flavor
+                            if (AppFlavor.current.isDoctor) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(context).pushNamed(
+                                      AppRouter.doctorRegisterRoute,
+                                    );
+                                  },
+                                  icon: const Icon(Icons.add_business),
+                                  label: const Text('Create New Clinic'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.all(16),
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'or',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(context).pushNamed(
+                                      AppRouter.doctorRegisterRoute,
+                                    );
+                                  },
+                                  icon: const Icon(Icons.group_add),
+                                  label: const Text('Join Existing Clinic'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.all(16),
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              const Text(
+                                'Please contact your administrator to get access',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              OutlinedButton(
+                                onPressed: () async {
+                                  final authService = ref.read(authServiceProvider);
+                                  await authService.signOut();
+                                  if (context.mounted) {
+                                    Navigator.of(context).pushNamedAndRemoveUntil(
+                                      AppRouter.loginRoute,
+                                      (route) => false,
+                                    );
+                                  }
+                                },
+                                child: const Text('Sign Out'),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     )
                   : ListView.builder(
