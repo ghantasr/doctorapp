@@ -41,3 +41,4 @@ ios/Runner/GeneratedPluginRegistrant.*
 # Generated files
 *.g.dart
 *.freezed.dart
+firebase-service-account.json
