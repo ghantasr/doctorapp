@@ -51,8 +51,8 @@ This document contains a comprehensive list of all prompts and requests made dur
 
 ### 8. Medical Visit Times Issue
 **Prompt:** "Medical visit times are showing 00:00 and patients aren't appearing in follow-up list"
-- **Context:** DateTime was being truncated during save
-- **Solution:** Fixed datetime handling using `.split('T')[0]`, added diagnostic logging, created troubleshooting guide
+- **Context:** DateTime was being truncated during save (incorrect use of `.split('T')[0]` was removing time portion)
+- **Solution:** Fixed datetime handling to preserve full datetime value, added diagnostic logging, created troubleshooting guide
 
 ### 9. Follow-Up Patients Not Showing
 **Prompt:** "Follow-up patients not showing in the list"
@@ -168,11 +168,7 @@ This document contains a comprehensive list of all prompts and requests made dur
 ### 21. Billing System
 **Prompt:** "Create billing system with PDF generation for bills"
 - **Context:** Track payments and generate invoices
-- **Delivered:**
-  - Bill creation
-  - PDF generation for bills
-  - Bill history view
-  - Payment tracking
+- **Delivered:** Bill creation, PDF generation for bills, bill history view, payment tracking
 
 ---
 
@@ -464,7 +460,7 @@ This document contains a comprehensive list of all prompts and requests made dur
 
 ### Total Categories:
 - **Initial Setup & Architecture:** 2 prompts
-- **Authentication & Multi-Tenancy:** 5 prompts
+- **Authentication & Multi-Tenancy:** 4 prompts
 - **Bug Fixes:** 3 prompts
 - **Appointment Management:** 2 prompts
 - **Patient Management:** 2 prompts
